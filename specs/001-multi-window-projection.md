@@ -42,3 +42,4 @@
 - 投影窓が開いているかどうかの判定は、`window.open()` の戻り値(`WindowProxy`)の `closed` プロパティを操作UI側でrAFループ内でポーリングする方式を採用した。
 - BroadcastChannelでの状態同期・シーン切替は実機ブラウザ(開発サーバー上の2タブ)で動作確認済み。`F` キーによるFullscreen APIは検証に使ったBrowser Pane環境がPermissions Policyでブロックしていたため確認できていない。実際のデスクトップブラウザ(Chrome等)で改めて確認すること。
 - 1画面PCで投影窓をフルスクリーン化すると操作窓が完全に隠れ(occluded)、Chromeが操作窓の `requestAnimationFrame` を強くスロットルして音声解析・状態送信が止まる問題を確認。対策として `src/control.ts` の音声解析・状態計算・BroadcastChannel送信は `setInterval`(33ms)で回し、rAFはプレビュー描画のみに使うよう分離した。
+- 上記の `setInterval` だけでも、occludedウィンドウではChromeがタイマーを最小1秒間隔にクランプするため状態更新がカクついた。Worker内のタイマーはこの抑制を受けないため、`src/tick-worker.ts` を追加し、tickを駆動するタイミングだけWorkerからの `postMessage` に任せる方式に変更した(音声解析自体はメインスレッド側で行う。`getUserMedia`/`AnalyserNode` はWorkerから直接扱えないため)。

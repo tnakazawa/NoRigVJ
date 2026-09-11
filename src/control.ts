@@ -100,9 +100,11 @@ let latestState: VJState = {
 };
 
 // 投影窓フルスクリーン化などで操作窓が他ウィンドウに完全に隠れる(occluded)と、
-// Chromeは隠れたウィンドウの requestAnimationFrame を強くスロットルする。
-// 音声解析・状態送信はそれを避けるため setInterval で回し、rAF依存にしない。
-const TICK_INTERVAL_MS = 33; // 約30fps相当
+// Chromeは隠れたウィンドウの requestAnimationFrame だけでなく setInterval/setTimeout も
+// 最小1秒間隔にクランプする。Worker内のタイマーはこの抑制を受けないため、
+// tickを駆動するタイミングだけWorkerに任せる。
+const tickWorker = new Worker(new URL("./tick-worker.ts", import.meta.url), { type: "module" });
+tickWorker.onmessage = () => tick();
 
 function tick() {
   const time = (performance.now() - startTime) / 1000;
@@ -136,8 +138,6 @@ function tick() {
     `intensity: ${manualIntensity.toFixed(1)} (←/→)`,
   ].join("\n");
 }
-
-setInterval(tick, TICK_INTERVAL_MS);
 
 // プレビュー描画は見た目の滑らかさ優先でrAFのまま。操作窓が隠れて一時的に
 // 止まっても実害はない(音声解析・投影窓への送信は上記tickが継続する)。
