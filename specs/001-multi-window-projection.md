@@ -1,6 +1,6 @@
 # 001: マルチウィンドウ構成(操作UI / 投影窓)
 
-- ステータス: Approved
+- ステータス: Implemented
 - 作成日: 2026-09-11
 
 ## 背景・目的
@@ -39,4 +39,5 @@
 ## 実装メモ
 
 - Viteのマルチページ構成(`control.html` + `display.html`、それぞれ `src/control.ts` / `src/display.ts` を持つ)を想定。`src/scenes.ts` と `src/audio.ts` は両エントリから共有する。
-- 投影窓が開いているかどうかの判定は、`window.open()` の戻り値(`WindowProxy`)の `closed` プロパティを操作UI側でポーリングするか、BroadcastChannel上で投影窓からの生存通知(ハートビート)を受け取る方式のどちらかを実装時に選定する。
+- 投影窓が開いているかどうかの判定は、`window.open()` の戻り値(`WindowProxy`)の `closed` プロパティを操作UI側でrAFループ内でポーリングする方式を採用した。
+- BroadcastChannelでの状態同期・シーン切替は実機ブラウザ(開発サーバー上の2タブ)で動作確認済み。`F` キーによるFullscreen APIは検証に使ったBrowser Pane環境がPermissions Policyでブロックしていたため確認できていない。実際のデスクトップブラウザ(Chrome等)で改めて確認すること。
