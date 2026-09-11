@@ -92,9 +92,19 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-function loop() {
-  const width = previewCanvas.clientWidth;
-  const height = previewCanvas.clientHeight;
+let latestState: VJState = {
+  sceneIndex,
+  intensity: manualIntensity,
+  audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
+  time: 0,
+};
+
+// 投影窓フルスクリーン化などで操作窓が他ウィンドウに完全に隠れる(occluded)と、
+// Chromeは隠れたウィンドウの requestAnimationFrame を強くスロットルする。
+// 音声解析・状態送信はそれを避けるため setInterval で回し、rAF依存にしない。
+const TICK_INTERVAL_MS = 33; // 約30fps相当
+
+function tick() {
   const time = (performance.now() - startTime) / 1000;
 
   const levels = audio.isEnabled()
@@ -114,10 +124,8 @@ function loop() {
     treble: levels.treble * manualIntensity,
   };
 
-  scenes[sceneIndex].render({ ctx: previewCtx, width, height, time, audio: scaledLevels });
-
-  const state: VJState = { sceneIndex, intensity: manualIntensity, audio: scaledLevels, time };
-  channel.postMessage(state);
+  latestState = { sceneIndex, intensity: manualIntensity, audio: scaledLevels, time };
+  channel.postMessage(latestState);
 
   const displayConnected = displayWindow !== null && !displayWindow.closed;
   statusEl.textContent = `投影窓: ${displayConnected ? "接続中" : "未接続"}`;
@@ -127,8 +135,23 @@ function loop() {
     `mic: ${audio.isEnabled() ? "ON" : "OFF (Spaceで有効化)"}`,
     `intensity: ${manualIntensity.toFixed(1)} (←/→)`,
   ].join("\n");
-
-  requestAnimationFrame(loop);
 }
 
-loop();
+setInterval(tick, TICK_INTERVAL_MS);
+
+// プレビュー描画は見た目の滑らかさ優先でrAFのまま。操作窓が隠れて一時的に
+// 止まっても実害はない(音声解析・投影窓への送信は上記tickが継続する)。
+function renderPreview() {
+  const width = previewCanvas.clientWidth;
+  const height = previewCanvas.clientHeight;
+  scenes[latestState.sceneIndex].render({
+    ctx: previewCtx,
+    width,
+    height,
+    time: latestState.time,
+    audio: latestState.audio,
+  });
+  requestAnimationFrame(renderPreview);
+}
+
+renderPreview();

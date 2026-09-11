@@ -41,3 +41,4 @@
 - Viteのマルチページ構成(`control.html` + `display.html`、それぞれ `src/control.ts` / `src/display.ts` を持つ)を想定。`src/scenes.ts` と `src/audio.ts` は両エントリから共有する。
 - 投影窓が開いているかどうかの判定は、`window.open()` の戻り値(`WindowProxy`)の `closed` プロパティを操作UI側でrAFループ内でポーリングする方式を採用した。
 - BroadcastChannelでの状態同期・シーン切替は実機ブラウザ(開発サーバー上の2タブ)で動作確認済み。`F` キーによるFullscreen APIは検証に使ったBrowser Pane環境がPermissions Policyでブロックしていたため確認できていない。実際のデスクトップブラウザ(Chrome等)で改めて確認すること。
+- 1画面PCで投影窓をフルスクリーン化すると操作窓が完全に隠れ(occluded)、Chromeが操作窓の `requestAnimationFrame` を強くスロットルして音声解析・状態送信が止まる問題を確認。対策として `src/control.ts` の音声解析・状態計算・BroadcastChannel送信は `setInterval`(33ms)で回し、rAFはプレビュー描画のみに使うよう分離した。
