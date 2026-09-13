@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { hexToRgb } from "./_shared/color-utils";
 import type { SceneContextWebGL, SceneFactory, SceneWebGL } from "./_shared/types";
 
 const vertexShader = `
@@ -15,6 +16,8 @@ const fragmentShader = `
   uniform float uVolume;
   uniform float uBass;
   uniform float uTreble;
+  uniform vec3 uMainColor;
+  uniform vec3 uSubColor;
   varying vec2 vUv;
 
   vec2 rotate(vec2 uv, float angle) {
@@ -37,13 +40,11 @@ const fragmentShader = `
     vec3 prev = texture2D(uPrevFrame, uv).rgb * 0.9;
 
     // 中心から音量に応じて発光する種火を継ぎ足す(減衰0.9との釣り合いで収束値が1.0を超えないよう調整)
+    // 発光色はメイン⇔サブの2色間を時間でゆっくり往復させる(色相が回り続ける表現はやめている)
     float d = distance(vUv, vec2(0.5));
     float glow = smoothstep(0.25, 0.0, d) * (0.01 + volume * 0.05);
-    vec3 seed = glow * (0.5 + 0.5 * vec3(
-      sin(uTime * 0.7),
-      sin(uTime * 0.9 + 2.0),
-      sin(uTime * 1.3 + 4.0)
-    ));
+    float mixAmount = 0.5 + 0.5 * sin(uTime * 0.5);
+    vec3 seed = glow * mix(uMainColor, uSubColor, mixAmount);
 
     gl_FragColor = vec4(prev + seed, 1.0);
   }
@@ -72,6 +73,7 @@ const createFeedbackLoopScene: SceneFactory = () => {
   const scene: SceneWebGL = {
     kind: "webgl",
     name: "Feedback Loop",
+    supportsPalette: true,
     init(ctx: SceneContextWebGL) {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -84,6 +86,8 @@ const createFeedbackLoopScene: SceneFactory = () => {
           uVolume: { value: 0 },
           uBass: { value: 0 },
           uTreble: { value: 0 },
+          uMainColor: { value: new THREE.Vector3() },
+          uSubColor: { value: new THREE.Vector3() },
         },
       });
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
@@ -100,6 +104,8 @@ const createFeedbackLoopScene: SceneFactory = () => {
       material.uniforms.uVolume.value = ctx.audio.volume;
       material.uniforms.uBass.value = ctx.audio.bass;
       material.uniforms.uTreble.value = ctx.audio.treble;
+      material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
+      material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
 
       ctx.renderer.setRenderTarget(targetB);
       ctx.renderer.render(renderScene, camera);

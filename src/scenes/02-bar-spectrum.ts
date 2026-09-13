@@ -6,6 +6,7 @@ const createBarSpectrumScene: SceneFactory = () => {
   const scene: Scene2D = {
     kind: "2d",
     name: "Bar Spectrum",
+    supportsPalette: false,
     render({ ctx, width, height, time, audio }) {
       ctx.fillStyle = "rgba(0,0,0,0.25)";
       ctx.fillRect(0, 0, width, height);

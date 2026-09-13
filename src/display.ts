@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { DEFAULT_PALETTE } from "./palettes";
 import { sceneFactories, type Scene } from "./scenes";
 import { CHANNEL_NAME, type VJState } from "./shared";
 
@@ -21,6 +22,7 @@ scenes.forEach((scene) => {
       height: window.innerHeight,
       time: 0,
       audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
+      palette: DEFAULT_PALETTE,
     });
   }
 });
@@ -29,6 +31,10 @@ let latest: VJState | null = null;
 
 function currentSceneIndex(): number {
   return latest?.sceneIndexByWindow[windowId] ?? 0;
+}
+
+function currentPalette() {
+  return latest?.paletteByWindow[windowId] ?? DEFAULT_PALETTE;
 }
 
 function updateCanvasVisibility() {
@@ -68,10 +74,11 @@ function loop() {
 
   if (latest) {
     const scene = scenes[currentSceneIndex()] ?? scenes[0];
+    const palette = currentPalette();
     if (scene.kind === "2d") {
-      scene.render({ ctx, width, height, time: latest.time, audio: latest.audio });
+      scene.render({ ctx, width, height, time: latest.time, audio: latest.audio, palette });
     } else {
-      scene.render({ renderer, width, height, time: latest.time, audio: latest.audio });
+      scene.render({ renderer, width, height, time: latest.time, audio: latest.audio, palette });
     }
   }
 

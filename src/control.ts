@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { AudioAnalyzer, type AudioLevels } from "./audio";
-import { sceneFactories, type Scene } from "./scenes";
+import { DEFAULT_PALETTE, PALETTE_PRESETS } from "./palettes";
+import { sceneFactories, type Palette, type Scene } from "./scenes";
 import { CHANNEL_NAME, type VJState } from "./shared";
 
 const displaysListEl = document.getElementById("displays-list")!;
@@ -23,15 +24,19 @@ interface DisplayEntry {
   id: string;
   window: Window;
   sceneIndex: number;
+  palette: Palette;
   scenes: Scene[];
   renderer: THREE.WebGLRenderer;
   previewCanvas: HTMLCanvasElement;
   previewCtx: CanvasRenderingContext2D;
   previewGlCanvas: HTMLCanvasElement;
   rowEl: HTMLElement;
+  paletteSelectEl: HTMLSelectElement;
+  mainColorInput: HTMLInputElement;
+  subColorInput: HTMLInputElement;
 }
 
-// 投影窓ごとに独立したシーンインスタンス・プレビュー用canvas/rendererを保持する。
+// 投影窓ごとに独立したシーンインスタンス・プレビュー用canvas/renderer・パレットを保持する。
 // windowId(BroadcastChannelで各投影窓を識別するキー)をMapのキーにする。
 const displays = new Map<string, DisplayEntry>();
 let displayCounter = 0;
@@ -44,6 +49,13 @@ function updateDisplayCanvasVisibility(entry: DisplayEntry) {
   const isWebGL = entry.scenes[entry.sceneIndex].kind === "webgl";
   entry.previewCanvas.style.display = isWebGL ? "none" : "block";
   entry.previewGlCanvas.style.display = isWebGL ? "block" : "none";
+}
+
+function updateDisplayPaletteUI(entry: DisplayEntry) {
+  const supportsPalette = entry.scenes[entry.sceneIndex].supportsPalette;
+  entry.paletteSelectEl.disabled = !supportsPalette;
+  entry.mainColorInput.disabled = !supportsPalette;
+  entry.subColorInput.disabled = !supportsPalette;
 }
 
 function resizeDisplayEntry(entry: DisplayEntry) {
@@ -71,14 +83,39 @@ function createDisplayRow(label: number) {
   labelEl.textContent = `投影窓 ${label}`;
 
   const selectEl = document.createElement("select");
+
+  const paletteRow = document.createElement("div");
+  paletteRow.className = "palette-row";
+
+  const paletteSelectEl = document.createElement("select");
+  PALETTE_PRESETS.forEach((preset, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = preset.name;
+    paletteSelectEl.appendChild(opt);
+  });
+  const customOption = document.createElement("option");
+  customOption.value = "custom";
+  customOption.textContent = "カスタム";
+  paletteSelectEl.appendChild(customOption);
+
+  const mainColorInput = document.createElement("input");
+  mainColorInput.type = "color";
+  mainColorInput.title = "メインカラー";
+  const subColorInput = document.createElement("input");
+  subColorInput.type = "color";
+  subColorInput.title = "サブカラー";
+
+  paletteRow.append(paletteSelectEl, mainColorInput, subColorInput);
+
   const closeBtn = document.createElement("button");
   closeBtn.className = "close-btn";
   closeBtn.textContent = "閉じる";
 
-  controls.append(labelEl, selectEl, closeBtn);
+  controls.append(labelEl, selectEl, paletteRow, closeBtn);
   rowEl.append(previewWrap, controls);
 
-  return { rowEl, previewCanvas, previewGlCanvas, selectEl, closeBtn };
+  return { rowEl, previewCanvas, previewGlCanvas, selectEl, paletteSelectEl, mainColorInput, subColorInput, closeBtn };
 }
 
 function addDisplay() {
@@ -91,7 +128,8 @@ function addDisplay() {
     return;
   }
 
-  const { rowEl, previewCanvas, previewGlCanvas, selectEl, closeBtn } = createDisplayRow(displayCounter);
+  const { rowEl, previewCanvas, previewGlCanvas, selectEl, paletteSelectEl, mainColorInput, subColorInput, closeBtn } =
+    createDisplayRow(displayCounter);
   displaysListEl.appendChild(rowEl);
 
   const previewCtx = previewCanvas.getContext("2d")!;
@@ -108,6 +146,7 @@ function addDisplay() {
         height: previewGlCanvas.clientHeight || 1,
         time: 0,
         audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
+        palette: DEFAULT_PALETTE,
       });
     }
   });
@@ -123,20 +162,47 @@ function addDisplay() {
     id,
     window: opened,
     sceneIndex: 0,
+    palette: { ...DEFAULT_PALETTE },
     scenes,
     renderer,
     previewCanvas,
     previewCtx,
     previewGlCanvas,
     rowEl,
+    paletteSelectEl,
+    mainColorInput,
+    subColorInput,
   };
+
+  paletteSelectEl.value = "0";
+  mainColorInput.value = entry.palette.main;
+  subColorInput.value = entry.palette.sub;
 
   selectEl.addEventListener("change", () => {
     entry.sceneIndex = Number(selectEl.value);
     updateDisplayCanvasVisibility(entry);
+    updateDisplayPaletteUI(entry);
     // display:none の間は clientWidth/Height が0になり renderer.setSize に反映できないため、
     // 表示状態を切り替えた直後に再計算する。
     resizeDisplayEntry(entry);
+  });
+
+  paletteSelectEl.addEventListener("change", () => {
+    if (paletteSelectEl.value === "custom") return;
+    const preset = PALETTE_PRESETS[Number(paletteSelectEl.value)];
+    entry.palette = { ...preset.palette };
+    mainColorInput.value = preset.palette.main;
+    subColorInput.value = preset.palette.sub;
+  });
+
+  mainColorInput.addEventListener("input", () => {
+    entry.palette = { ...entry.palette, main: mainColorInput.value };
+    paletteSelectEl.value = "custom";
+  });
+
+  subColorInput.addEventListener("input", () => {
+    entry.palette = { ...entry.palette, sub: subColorInput.value };
+    paletteSelectEl.value = "custom";
   });
 
   closeBtn.addEventListener("click", () => {
@@ -145,6 +211,7 @@ function addDisplay() {
 
   displays.set(id, entry);
   updateDisplayCanvasVisibility(entry);
+  updateDisplayPaletteUI(entry);
   resizeDisplayEntry(entry);
   updateDisplaysEmptyVisibility();
 }
@@ -244,11 +311,19 @@ function tick() {
   }
 
   const sceneIndexByWindow: Record<string, number> = {};
+  const paletteByWindow: Record<string, Palette> = {};
   displays.forEach((entry, id) => {
     sceneIndexByWindow[id] = entry.sceneIndex;
+    paletteByWindow[id] = entry.palette;
   });
 
-  const state: VJState = { sceneIndexByWindow, intensity: manualIntensity, audio: scaledLevels, time };
+  const state: VJState = {
+    sceneIndexByWindow,
+    paletteByWindow,
+    intensity: manualIntensity,
+    audio: scaledLevels,
+    time,
+  };
   channel.postMessage(state);
 
   statusEl.textContent = `投影窓: ${displays.size}枚接続中`;
@@ -262,11 +337,18 @@ function renderPreviews() {
     if (scene.kind === "2d") {
       const width = entry.previewCanvas.clientWidth;
       const height = entry.previewCanvas.clientHeight;
-      scene.render({ ctx: entry.previewCtx, width, height, time: latestTime, audio: latestAudio });
+      scene.render({ ctx: entry.previewCtx, width, height, time: latestTime, audio: latestAudio, palette: entry.palette });
     } else {
       const width = entry.previewGlCanvas.clientWidth;
       const height = entry.previewGlCanvas.clientHeight;
-      scene.render({ renderer: entry.renderer, width, height, time: latestTime, audio: latestAudio });
+      scene.render({
+        renderer: entry.renderer,
+        width,
+        height,
+        time: latestTime,
+        audio: latestAudio,
+        palette: entry.palette,
+      });
     }
   });
 

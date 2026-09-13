@@ -11,4 +11,4 @@ export const sceneFactories: SceneFactory[] = Object.keys(modules)
   .sort()
   .map((path) => modules[path].default);
 
-export type { Scene, Scene2D, SceneWebGL, SceneContext2D, SceneContextWebGL } from "./_shared/types";
+export type { Scene, Scene2D, SceneWebGL, SceneContext2D, SceneContextWebGL, Palette } from "./_shared/types";
