@@ -1,78 +1,173 @@
 import * as THREE from "three";
-import { AudioAnalyzer } from "./audio";
+import { AudioAnalyzer, type AudioLevels } from "./audio";
 import { sceneFactories, type Scene } from "./scenes";
 import { CHANNEL_NAME, type VJState } from "./shared";
 
-const previewCanvas = document.getElementById("preview") as HTMLCanvasElement;
-const previewGlCanvas = document.getElementById("preview-gl") as HTMLCanvasElement;
-const previewCtx = previewCanvas.getContext("2d")!;
-const hud = document.getElementById("hud")!;
-const sceneButtonsEl = document.getElementById("scene-buttons")!;
+const displaysListEl = document.getElementById("displays-list")!;
+const displaysEmptyEl = document.getElementById("displays-empty")!;
 const intensitySlider = document.getElementById("intensity") as HTMLInputElement;
 const intensityValueEl = document.getElementById("intensity-value")!;
 const micToggleBtn = document.getElementById("mic-toggle") as HTMLButtonElement;
-const openDisplayBtn = document.getElementById("open-display") as HTMLButtonElement;
+const addDisplayBtn = document.getElementById("add-display") as HTMLButtonElement;
 const statusEl = document.getElementById("status")!;
 
-const renderer = new THREE.WebGLRenderer({ canvas: previewGlCanvas, antialias: true });
-
-// 操作UI専用のシーンインスタンス群。投影窓は別途自分のインスタンスを持つ
-// (WebGLシーンはRenderTargetなどの状態をインスタンスごとに抱えるため)。
-const scenes: Scene[] = sceneFactories.map((factory) => factory());
-scenes.forEach((scene) => {
-  if (scene.kind === "webgl" && scene.init) {
-    scene.init({
-      renderer,
-      width: previewCanvas.clientWidth || 1,
-      height: previewCanvas.clientHeight || 1,
-      time: 0,
-      audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
-    });
-  }
-});
-
-let sceneIndex = 0;
 let startTime = performance.now();
 let manualIntensity = 1; // ← / → キー、またはスライダーで調整
+let latestAudio: AudioLevels = { volume: 0, bass: 0, mid: 0, treble: 0 };
+let latestTime = 0;
 
 const audio = new AudioAnalyzer();
 const channel = new BroadcastChannel(CHANNEL_NAME);
-let displayWindow: Window | null = null;
 
-function updateCanvasVisibility() {
-  const isWebGL = scenes[sceneIndex].kind === "webgl";
-  previewCanvas.style.display = isWebGL ? "none" : "block";
-  previewGlCanvas.style.display = isWebGL ? "block" : "none";
+interface DisplayEntry {
+  id: string;
+  window: Window;
+  sceneIndex: number;
+  scenes: Scene[];
+  renderer: THREE.WebGLRenderer;
+  previewCanvas: HTMLCanvasElement;
+  previewCtx: CanvasRenderingContext2D;
+  previewGlCanvas: HTMLCanvasElement;
+  rowEl: HTMLElement;
 }
 
-function resize() {
-  previewCanvas.width = previewCanvas.clientWidth * window.devicePixelRatio;
-  previewCanvas.height = previewCanvas.clientHeight * window.devicePixelRatio;
-  previewCtx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
-  renderer.setSize(previewGlCanvas.clientWidth, previewGlCanvas.clientHeight, false);
-}
-window.addEventListener("resize", resize);
-resize();
+// 投影窓ごとに独立したシーンインスタンス・プレビュー用canvas/rendererを保持する。
+// windowId(BroadcastChannelで各投影窓を識別するキー)をMapのキーにする。
+const displays = new Map<string, DisplayEntry>();
+let displayCounter = 0;
 
-function renderSceneButtons() {
-  sceneButtonsEl.innerHTML = "";
-  scenes.forEach((scene, i) => {
-    const btn = document.createElement("button");
-    btn.textContent = `${i + 1}. ${scene.name}`;
-    btn.classList.toggle("active", i === sceneIndex);
-    btn.addEventListener("click", () => setSceneIndex(i));
-    sceneButtonsEl.appendChild(btn);
+function updateDisplaysEmptyVisibility() {
+  displaysEmptyEl.style.display = displays.size === 0 ? "block" : "none";
+}
+
+function updateDisplayCanvasVisibility(entry: DisplayEntry) {
+  const isWebGL = entry.scenes[entry.sceneIndex].kind === "webgl";
+  entry.previewCanvas.style.display = isWebGL ? "none" : "block";
+  entry.previewGlCanvas.style.display = isWebGL ? "block" : "none";
+}
+
+function resizeDisplayEntry(entry: DisplayEntry) {
+  entry.previewCanvas.width = entry.previewCanvas.clientWidth * window.devicePixelRatio;
+  entry.previewCanvas.height = entry.previewCanvas.clientHeight * window.devicePixelRatio;
+  entry.previewCtx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+  entry.renderer.setSize(entry.previewGlCanvas.clientWidth, entry.previewGlCanvas.clientHeight, false);
+}
+
+function createDisplayRow(label: number) {
+  const rowEl = document.createElement("div");
+  rowEl.className = "display-row";
+
+  const previewWrap = document.createElement("div");
+  previewWrap.className = "display-preview";
+  const previewCanvas = document.createElement("canvas");
+  const previewGlCanvas = document.createElement("canvas");
+  previewWrap.append(previewCanvas, previewGlCanvas);
+
+  const controls = document.createElement("div");
+  controls.className = "display-row-controls";
+
+  const labelEl = document.createElement("div");
+  labelEl.className = "display-row-label";
+  labelEl.textContent = `投影窓 ${label}`;
+
+  const selectEl = document.createElement("select");
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "close-btn";
+  closeBtn.textContent = "閉じる";
+
+  controls.append(labelEl, selectEl, closeBtn);
+  rowEl.append(previewWrap, controls);
+
+  return { rowEl, previewCanvas, previewGlCanvas, selectEl, closeBtn };
+}
+
+function addDisplay() {
+  const id = crypto.randomUUID();
+  displayCounter += 1;
+
+  const opened = window.open(`/display.html?windowId=${id}`, id, "width=1280,height=720");
+  if (!opened) {
+    console.error("投影窓のオープンに失敗しました(ポップアップブロックされている可能性があります)");
+    return;
+  }
+
+  const { rowEl, previewCanvas, previewGlCanvas, selectEl, closeBtn } = createDisplayRow(displayCounter);
+  displaysListEl.appendChild(rowEl);
+
+  const previewCtx = previewCanvas.getContext("2d")!;
+  const renderer = new THREE.WebGLRenderer({ canvas: previewGlCanvas, antialias: true });
+
+  // 投影窓ごとに独立したシーンインスタンス群を持つ(WebGLシーンはRenderTargetなどの
+  // 状態をインスタンスごとに抱えるため、操作UI側のプレビューも専用インスタンスが必要)。
+  const scenes: Scene[] = sceneFactories.map((factory) => factory());
+  scenes.forEach((scene) => {
+    if (scene.kind === "webgl" && scene.init) {
+      scene.init({
+        renderer,
+        width: previewGlCanvas.clientWidth || 1,
+        height: previewGlCanvas.clientHeight || 1,
+        time: 0,
+        audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
+      });
+    }
   });
+
+  scenes.forEach((scene, i) => {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = scene.name;
+    selectEl.appendChild(option);
+  });
+
+  const entry: DisplayEntry = {
+    id,
+    window: opened,
+    sceneIndex: 0,
+    scenes,
+    renderer,
+    previewCanvas,
+    previewCtx,
+    previewGlCanvas,
+    rowEl,
+  };
+
+  selectEl.addEventListener("change", () => {
+    entry.sceneIndex = Number(selectEl.value);
+    updateDisplayCanvasVisibility(entry);
+    // display:none の間は clientWidth/Height が0になり renderer.setSize に反映できないため、
+    // 表示状態を切り替えた直後に再計算する。
+    resizeDisplayEntry(entry);
+  });
+
+  closeBtn.addEventListener("click", () => {
+    removeDisplay(id);
+  });
+
+  displays.set(id, entry);
+  updateDisplayCanvasVisibility(entry);
+  resizeDisplayEntry(entry);
+  updateDisplaysEmptyVisibility();
 }
 
-function setSceneIndex(i: number) {
-  sceneIndex = i;
-  renderSceneButtons();
-  updateCanvasVisibility();
-  // display:none の間は clientWidth/Height が0になり renderer.setSize に反映できないため、
-  // 表示状態を切り替えた直後に再計算する。
-  resize();
+function removeDisplay(id: string) {
+  const entry = displays.get(id);
+  if (!entry) return;
+  if (!entry.window.closed) {
+    entry.window.close();
+  }
+  entry.renderer.dispose();
+  entry.rowEl.remove();
+  displays.delete(id);
+  updateDisplaysEmptyVisibility();
 }
+
+addDisplayBtn.addEventListener("click", () => {
+  addDisplay();
+});
+
+window.addEventListener("resize", () => {
+  displays.forEach((entry) => resizeDisplayEntry(entry));
+});
 
 function setIntensity(v: number) {
   manualIntensity = Math.min(3, Math.max(0, v));
@@ -90,8 +185,6 @@ async function enableMic() {
   }
 }
 
-renderSceneButtons();
-updateCanvasVisibility();
 setIntensity(manualIntensity);
 
 intensitySlider.addEventListener("input", () => {
@@ -102,18 +195,8 @@ micToggleBtn.addEventListener("click", () => {
   enableMic();
 });
 
-openDisplayBtn.addEventListener("click", () => {
-  if (displayWindow && !displayWindow.closed) {
-    displayWindow.focus();
-    return;
-  }
-  displayWindow = window.open("/display.html", "norigvj-display", "width=1280,height=720");
-});
-
 window.addEventListener("keydown", (e) => {
-  if (e.key >= "1" && e.key <= String(scenes.length)) {
-    setSceneIndex(Number(e.key) - 1);
-  } else if (e.key === "ArrowRight") {
+  if (e.key === "ArrowRight") {
     setIntensity(manualIntensity + 0.1);
   } else if (e.key === "ArrowLeft") {
     setIntensity(manualIntensity - 0.1);
@@ -122,13 +205,6 @@ window.addEventListener("keydown", (e) => {
     enableMic();
   }
 });
-
-let latestState: VJState = {
-  sceneIndex,
-  intensity: manualIntensity,
-  audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
-  time: 0,
-};
 
 // 投影窓フルスクリーン化などで操作窓が他ウィンドウに完全に隠れる(occluded)と、
 // Chromeは隠れたウィンドウの requestAnimationFrame だけでなく setInterval/setTimeout も
@@ -157,47 +233,44 @@ function tick() {
     treble: levels.treble * manualIntensity,
   };
 
-  latestState = { sceneIndex, intensity: manualIntensity, audio: scaledLevels, time };
-  channel.postMessage(latestState);
+  latestTime = time;
+  latestAudio = scaledLevels;
 
-  const displayConnected = displayWindow !== null && !displayWindow.closed;
-  statusEl.textContent = `投影窓: ${displayConnected ? "接続中" : "未接続"}`;
+  // 投影窓の生存確認。ユーザーがウィンドウ自体を閉じた場合も一覧から自動的に除去する。
+  for (const [id, entry] of [...displays]) {
+    if (entry.window.closed) {
+      removeDisplay(id);
+    }
+  }
 
-  hud.textContent = [
-    `scene: ${sceneIndex + 1}/${scenes.length} (${scenes[sceneIndex].name})`,
-    `mic: ${audio.isEnabled() ? "ON" : "OFF (Spaceで有効化)"}`,
-    `intensity: ${manualIntensity.toFixed(1)} (←/→)`,
-  ].join("\n");
+  const sceneIndexByWindow: Record<string, number> = {};
+  displays.forEach((entry, id) => {
+    sceneIndexByWindow[id] = entry.sceneIndex;
+  });
+
+  const state: VJState = { sceneIndexByWindow, intensity: manualIntensity, audio: scaledLevels, time };
+  channel.postMessage(state);
+
+  statusEl.textContent = `投影窓: ${displays.size}枚接続中`;
 }
 
 // プレビュー描画は見た目の滑らかさ優先でrAFのまま。操作窓が隠れて一時的に
 // 止まっても実害はない(音声解析・投影窓への送信は上記tickが継続する)。
-function renderPreview() {
-  const scene = scenes[latestState.sceneIndex];
+function renderPreviews() {
+  displays.forEach((entry) => {
+    const scene = entry.scenes[entry.sceneIndex];
+    if (scene.kind === "2d") {
+      const width = entry.previewCanvas.clientWidth;
+      const height = entry.previewCanvas.clientHeight;
+      scene.render({ ctx: entry.previewCtx, width, height, time: latestTime, audio: latestAudio });
+    } else {
+      const width = entry.previewGlCanvas.clientWidth;
+      const height = entry.previewGlCanvas.clientHeight;
+      scene.render({ renderer: entry.renderer, width, height, time: latestTime, audio: latestAudio });
+    }
+  });
 
-  if (scene.kind === "2d") {
-    const width = previewCanvas.clientWidth;
-    const height = previewCanvas.clientHeight;
-    scene.render({
-      ctx: previewCtx,
-      width,
-      height,
-      time: latestState.time,
-      audio: latestState.audio,
-    });
-  } else {
-    const width = previewGlCanvas.clientWidth;
-    const height = previewGlCanvas.clientHeight;
-    scene.render({
-      renderer,
-      width,
-      height,
-      time: latestState.time,
-      audio: latestState.audio,
-    });
-  }
-
-  requestAnimationFrame(renderPreview);
+  requestAnimationFrame(renderPreviews);
 }
 
-renderPreview();
+renderPreviews();

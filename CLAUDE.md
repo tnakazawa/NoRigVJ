@@ -30,11 +30,11 @@ npx tsc --noEmit  # 型チェックのみ実行
 
 ### マルチウィンドウ構成
 
-操作UIと投影窓の2ウィンドウ構成([specs/001-multi-window-projection.md](specs/001-multi-window-projection.md)参照)。Viteのマルチページビルド(`vite.config.ts` の `rollupOptions.input`)で `control.html` / `display.html` の2エントリをビルドする。
+操作UIと、複数持てる投影窓の構成([specs/001-multi-window-projection.md](specs/001-multi-window-projection.md) / [specs/003-multiple-display-windows.md](specs/003-multiple-display-windows.md)参照)。Viteのマルチページビルド(`vite.config.ts` の `rollupOptions.input`)で `control.html` / `display.html` の2エントリをビルドする。
 
-- **control.html + [src/control.ts](src/control.ts)** — 操作UI。マイク解析(`AudioAnalyzer`)、シーン選択・強度調整のGUI/キー入力、プレビュー描画、投影窓を開く処理を持つ。状態のsingle source of truthであり、`requestAnimationFrame` ループ内で毎フレーム `BroadcastChannel` に状態を送信する。
-- **display.html + [src/display.ts](src/display.ts)** — 投影窓。`BroadcastChannel` で受信した最新状態のみを使ってフルスクリーン背景に描画するステートレスなレンダラー。`F` キーでFullscreen API切り替え。
-- **[src/shared.ts](src/shared.ts)** — 2画面間でやり取りする `VJState` 型と `BroadcastChannel` 名を定義する共有モジュール。
+- **control.html + [src/control.ts](src/control.ts)** — 操作UI。マイク解析(`AudioAnalyzer`)は全投影窓で共通の1系統のみ。「投影窓を追加」ボタンを押すたびに新規投影窓を開き、`windowId`(`crypto.randomUUID()`)を発行して `displays: Map<windowId, DisplayEntry>` で管理する。各投影窓ごとに独立したプレビューcanvas・シーンインスタンス・シーン選択(`<select>`)・「閉じる」ボタンを持つ一覧UIになっている。状態のsingle source of truthであり、`sceneIndexByWindow`(windowId → sceneIndex)・強度・音声レベルを `BroadcastChannel` に送信する。
+- **display.html + [src/display.ts](src/display.ts)** — 投影窓。起動時にURLの `windowId` クエリパラメータ(`window.open` 時に付与される)を読み取り、`BroadcastChannel` で受信した状態から `sceneIndexByWindow[windowId]` だけを見て描画するステートレスなレンダラー。`F` キーでFullscreen API切り替え。
+- **[src/shared.ts](src/shared.ts)** — 2画面間でやり取りする `VJState`(`sceneIndexByWindow` を含む)型と `BroadcastChannel` 名を定義する共有モジュール。
 
 ### 主要ファイル
 
@@ -51,7 +51,7 @@ npx tsc --noEmit  # 型チェックのみ実行
 2. `SceneFactory`(`() => Scene`)を `default export` する。**シーンオブジェクトを直接exportしない**こと — 操作UIのプレビューと投影窓はそれぞれ別canvas/別WebGLコンテキストを持つため、ページごとに独立したインスタンスをファクトリから生成する設計になっている。
 3. Canvas 2Dシーンは `kind: "2d"`、`render(ctx: SceneContext2D)` を実装する(`ctx.audio.volume/bass/mid/treble` と `ctx.time` を使う)。
 4. WebGLシーンは `kind: "webgl"`、`render(ctx: SceneContextWebGL)` を実装する。シェーダーコンパイル・`WebGLRenderTarget` 確保など初回のみでよい処理は `init?(ctx)` に書く(シーンごとに一度だけ呼ばれる)。`04-feedback-loop.ts` を参考にする。
-5. ファイルを置くだけで `sceneFactories` に自動的に反映され、GUIのシーン選択ボタン・数字キー操作・投影窓の描画対象になる。`src/scenes/index.ts` の編集は不要。
+5. ファイルを置くだけで `sceneFactories` に自動的に反映され、各投影窓行のシーン選択セレクトボックスの選択肢として自動的に追加される。`src/scenes/index.ts` の編集は不要。
 
 ### 既知の注意点
 
@@ -64,8 +64,8 @@ npx tsc --noEmit  # 型チェックのみ実行
 
 | キー / UI | 動作 |
 |---|---|
-| Space / マイクボタン | マイク入力を有効化 |
-| 1〜3 / シーンボタン | ビジュアルシーンを切り替え |
-| ← / → / スライダー | エフェクトの強度を調整(0〜3) |
+| Space / マイクボタン | マイク入力を有効化(全投影窓共通) |
+| ← / → / スライダー | エフェクトの強度を調整(0〜3、全投影窓共通) |
+| 投影窓ごとのセレクトボックス | その投影窓に表示するシーンを個別に切り替え |
 
-左下のHUD(`#hud`)に現在のシーン・マイク状態・強度を表示する。投影窓側では `F` キーでフルスクリーン切り替え。
+数字キーによるシーン切替は廃止済み(投影窓ごとにシーンが異なりうるため、「どの窓に効くか」が曖昧になるのを避けている)。投影窓側では `F` キーでフルスクリーン切り替え。
