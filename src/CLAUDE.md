@@ -12,7 +12,7 @@
 
 ## 主要ファイル
 
-- [audio.ts](audio.ts) — `AudioAnalyzer` クラス。`fftSize: 512`、`smoothingTimeConstant: 0.8` で周波数データを取得し、周波数ビンを低域0〜10%/中域10〜50%/高域50〜100%に分割して `volume/bass/mid/treble`(各0-1)を算出する。
+- [audio.ts](audio.ts) — `AudioAnalyzer` クラス。`fftSize: 512`、`smoothingTimeConstant: 0.8` で周波数データを取得し、周波数ビンを低域0〜6%(〜1.3kHz)/中域6〜25%(〜1.3〜5.5kHz)/高域25〜100%(〜5.5〜22kHz)に分割して `volume/bass/mid/treble`(各0-1)を算出する。境界は音楽・声のエネルギーが低〜中域に集中する実態に合わせて調整済み(高域寄りに広く取りすぎると `treble` がほぼ反応しなくなる)。
 - [palettes.ts](palettes.ts) — カラーパレットのプリセット定義(`PALETTE_PRESETS`)とデフォルトパレット(`DEFAULT_PALETTE`)。シーン側の `supportsPalette` については [scenes/CLAUDE.md](scenes/CLAUDE.md) を参照。
 - [tick-worker.ts](tick-worker.ts) — 音声解析・状態送信を駆動するtickをWorker側で刻む(理由は下記既知の注意点参照)。
 

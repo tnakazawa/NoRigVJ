@@ -45,10 +45,11 @@ const fragmentShader = `
     vec2 uv = rotated / aspectVec + 0.5;
     vec3 prev = texture2D(uPrevFrame, uv).rgb * 0.9;
 
-    // 中心から音量に応じて発光する種火を継ぎ足す(減衰0.9との釣り合いで収束値が1.0を超えないよう調整)
+    // 中心から音量に応じて発光する種火を継ぎ足す。表示範囲・音声反応とも要望でさらに拡大しており、
+    // 音量が高いと中心が白飛びしうる(はみ出てよい旨・敏感さ優先の指示のため許容)
     // 発光色はメイン⇔サブの2色間を時間でゆっくり往復させる(色相が回り続ける表現はやめている)
     float d = length(centered);
-    float glow = smoothstep(0.25 * 1.25, 0.0, d) * (0.01 + volume * 0.05 * 1.75);
+    float glow = smoothstep(0.25 * 1.25 * 2.0, 0.0, d) * (0.01 + volume * 0.05 * 1.75 * 1.5);
     float mixAmount = 0.5 + 0.5 * sin(uTime * 0.5);
     vec3 seed = glow * mix(uMainColor, uSubColor, mixAmount);
 

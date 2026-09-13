@@ -33,8 +33,12 @@ export class AudioAnalyzer {
     }
     this.analyser.getByteFrequencyData(this.data as Uint8Array<ArrayBuffer>);
     const n = this.data.length;
-    const bassEnd = Math.floor(n * 0.1);
-    const midEnd = Math.floor(n * 0.5);
+    // 音楽・声のエネルギーは低〜中域(〜4kHz程度)に集中し、高域は倍音程度しか
+    // 含まれない。境界を高域寄りに広げすぎると treble がほぼ反応しなくなるため、
+    // 低域0〜6%(fftSize512・サンプリングレート44.1kHzで〜1.3kHzまで)/
+    // 中域6〜25%(〜1.3〜5.5kHz)/高域25〜100%(〜5.5〜22kHz)に調整している。
+    const bassEnd = Math.floor(n * 0.06);
+    const midEnd = Math.floor(n * 0.25);
 
     let bassSum = 0, midSum = 0, trebleSum = 0, total = 0;
     for (let i = 0; i < n; i++) {

@@ -11,16 +11,16 @@ const createNoiseFieldScene: SceneFactory = () => {
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.fillRect(0, 0, width, height);
 
-      // 音声反応が鈍かったため、1.2倍敏感にする
-      const volume = audio.volume * 1.2;
-      const treble = audio.treble * 1.2;
+      // 音声反応が鈍かったため、1.5倍(1.2倍→さらに1.25倍)敏感にする
+      const volume = audio.volume * 1.5;
+      const treble = audio.treble * 1.5;
 
       // パーティクルサイズは画面サイズ(小さい方の辺)を基準にスケールする
       const baseSize = Math.min(width, height) * 0.006;
       const count = 150 + Math.floor(treble * 300);
       for (let i = 0; i < count; i++) {
-        // 動きを遅くするため time の係数を小さくしている
-        const a = i * 12.9898 + time * 1.6;
+        // 動きをさらに遅くしている
+        const a = i * 12.9898 + time * 0.7;
         const x = (Math.sin(a) * 0.5 + 0.5) * width;
         const y = (Math.cos(a * 1.3) * 0.5 + 0.5) * height;
         const r = baseSize * (1 + volume * 3);
