@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-NoRigVJ: ブラウザ+オフラインで動作するインタラクティブなVJ(Visual Jockey)アプリケーション。マイク入力の音声を解析し、リアルタイムでCanvas 2Dにビジュアルを生成する。特別なオーディオインターフェースやMIDI機材を必要としない点がコンセプト。
+NoRigVJ: ブラウザ+オフラインで動作するインタラクティブなVJ(Visual Jockey)アプリケーション。マイク入力の音声を解析し、リアルタイムでビジュアルを生成する。特別なオーディオインターフェースやMIDI機材を必要としない点がコンセプト。
 
 ## コマンド
 
@@ -24,9 +24,9 @@ npx tsc --noEmit  # 型チェックのみ実行
 
 ## アーキテクチャ
 
-- **Canvas 2D API** でレンダリング(WebGL未使用)。
+- レンダリングは **Canvas 2D API** と **WebGL(three.js)** の併存構成([specs/002-webgl-scenes.md](specs/002-webgl-scenes.md)参照)。シーンごとにどちらか一方を使う。
 - **Web Audio API** で音声解析(`getUserMedia` でマイク入力)。
-- フレームワーク・UIライブラリなし。依存は `vite` と `typescript` のみ。
+- フレームワーク・UIライブラリなし。依存は `vite` / `typescript` / `three` のみ。
 
 ### マルチウィンドウ構成
 
@@ -39,17 +39,26 @@ npx tsc --noEmit  # 型チェックのみ実行
 ### 主要ファイル
 
 - [src/audio.ts](src/audio.ts) — `AudioAnalyzer` クラス。`fftSize: 512`、`smoothingTimeConstant: 0.8` で周波数データを取得し、周波数ビンを低域0〜10%/中域10〜50%/高域50〜100%に分割して `volume/bass/mid/treble`(各0-1)を算出する。
-- [src/scenes.ts](src/scenes.ts) — `Scene { name, render(SceneContext) }` インターフェースで統一されたビジュアルシーン群。`scenes` 配列に追加するだけで、control/display 両方の切り替え対象に自動的に組み込まれる。実装済み: Pulse Rings / Bar Spectrum / Noise Field。
+- [src/scenes/](src/scenes/) — ビジュアルシーン群。1シーン1ファイルで、ビルド時に自動収集される([シーン追加の手順](#シーン追加の手順)参照)。
+  - [src/scenes/_shared/types.ts](src/scenes/_shared/types.ts) — `Scene2D` / `SceneWebGL` / `Scene`(Union型)/ `SceneFactory` などの型定義。
+  - [src/scenes/_shared/color-utils.ts](src/scenes/_shared/color-utils.ts) — `hsl()` など2Dシーン共通のヘルパー。
+  - [src/scenes/index.ts](src/scenes/index.ts) — `import.meta.glob` で `src/scenes/*.ts`(`_shared/` を除く)を自動収集し、`sceneFactories: SceneFactory[]` をexportする。
+  - 実装済みシーン: `01-pulse-rings.ts` / `02-bar-spectrum.ts` / `03-noise-field.ts`(いずれもCanvas 2D)、`04-feedback-loop.ts`(WebGL、three.jsによるRenderTargetのピンポンでフィードバックループを表現)。
 
 ### シーン追加の手順
 
-1. `src/scenes.ts` に `Scene` を実装した定数を追加。
-2. `render(SceneContext)` 内で `audio.volume/bass/mid/treble`(0-1)と `time`(秒)を使って描画。
-3. 末尾の `scenes` 配列に追加すれば、`control.ts` のシーンボタン生成・キー入力(数字キー)・`display.ts` の描画に自動反映される。
+1. `src/scenes/NN-scene-name.ts` を作成する。`NN` は既存ファイルの最大値+1(2桁連番)。この連番がシーンの並び順・キー割当(1, 2, 3...)を決める。
+2. `SceneFactory`(`() => Scene`)を `default export` する。**シーンオブジェクトを直接exportしない**こと — 操作UIのプレビューと投影窓はそれぞれ別canvas/別WebGLコンテキストを持つため、ページごとに独立したインスタンスをファクトリから生成する設計になっている。
+3. Canvas 2Dシーンは `kind: "2d"`、`render(ctx: SceneContext2D)` を実装する(`ctx.audio.volume/bass/mid/treble` と `ctx.time` を使う)。
+4. WebGLシーンは `kind: "webgl"`、`render(ctx: SceneContextWebGL)` を実装する。シェーダーコンパイル・`WebGLRenderTarget` 確保など初回のみでよい処理は `init?(ctx)` に書く(シーンごとに一度だけ呼ばれる)。`04-feedback-loop.ts` を参考にする。
+5. ファイルを置くだけで `sceneFactories` に自動的に反映され、GUIのシーン選択ボタン・数字キー操作・投影窓の描画対象になる。`src/scenes/index.ts` の編集は不要。
 
 ### 既知の注意点
 
-`analyser.getByteFrequencyData()` に `Uint8Array` を渡すとTS5.5で `Uint8Array<ArrayBufferLike>` の型エラーが出るため、`src/audio.ts` 内で `as Uint8Array<ArrayBuffer>` にキャストしている。
+- `analyser.getByteFrequencyData()` に `Uint8Array` を渡すとTS5.5で `Uint8Array<ArrayBufferLike>` の型エラーが出るため、`src/audio.ts` 内で `as Uint8Array<ArrayBuffer>` にキャストしている。
+- `import.meta.glob` の型解決に `vite/client` の型定義が必要なため、`tsconfig.json` の `compilerOptions.types` に `"vite/client"` を追加している。
+- WebGLシーンの `audio` の値は、操作UI側の強度スライダー(0〜3倍)でスケールされるため1.0を超えうる。シェーダー内で `clamp()` せずに使うと发散・白飛びしやすいので、`04-feedback-loop.ts` のように上限をクランプしてから使う。
+- 操作UI・投影窓とも、2D用/WebGL用の2枚のcanvasを重ねて配置し、アクティブなシーンの `kind` に応じて `display: none` で表示を切り替えている。`display: none` の間はそのcanvasの `clientWidth/clientHeight` が0になるため、シーン切替時は表示状態を変えた直後に必ずリサイズ処理(`resize()`)を呼び直す必要がある(呼ばないとWebGL側の内部解像度が0のままになり描画されない)。
 
 ### 操作方法(control.html)
 

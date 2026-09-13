@@ -1,8 +1,10 @@
+import * as THREE from "three";
 import { AudioAnalyzer } from "./audio";
-import { scenes } from "./scenes";
+import { sceneFactories, type Scene } from "./scenes";
 import { CHANNEL_NAME, type VJState } from "./shared";
 
 const previewCanvas = document.getElementById("preview") as HTMLCanvasElement;
+const previewGlCanvas = document.getElementById("preview-gl") as HTMLCanvasElement;
 const previewCtx = previewCanvas.getContext("2d")!;
 const hud = document.getElementById("hud")!;
 const sceneButtonsEl = document.getElementById("scene-buttons")!;
@@ -12,6 +14,23 @@ const micToggleBtn = document.getElementById("mic-toggle") as HTMLButtonElement;
 const openDisplayBtn = document.getElementById("open-display") as HTMLButtonElement;
 const statusEl = document.getElementById("status")!;
 
+const renderer = new THREE.WebGLRenderer({ canvas: previewGlCanvas, antialias: true });
+
+// 操作UI専用のシーンインスタンス群。投影窓は別途自分のインスタンスを持つ
+// (WebGLシーンはRenderTargetなどの状態をインスタンスごとに抱えるため)。
+const scenes: Scene[] = sceneFactories.map((factory) => factory());
+scenes.forEach((scene) => {
+  if (scene.kind === "webgl" && scene.init) {
+    scene.init({
+      renderer,
+      width: previewCanvas.clientWidth || 1,
+      height: previewCanvas.clientHeight || 1,
+      time: 0,
+      audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
+    });
+  }
+});
+
 let sceneIndex = 0;
 let startTime = performance.now();
 let manualIntensity = 1; // ← / → キー、またはスライダーで調整
@@ -20,10 +39,17 @@ const audio = new AudioAnalyzer();
 const channel = new BroadcastChannel(CHANNEL_NAME);
 let displayWindow: Window | null = null;
 
+function updateCanvasVisibility() {
+  const isWebGL = scenes[sceneIndex].kind === "webgl";
+  previewCanvas.style.display = isWebGL ? "none" : "block";
+  previewGlCanvas.style.display = isWebGL ? "block" : "none";
+}
+
 function resize() {
   previewCanvas.width = previewCanvas.clientWidth * window.devicePixelRatio;
   previewCanvas.height = previewCanvas.clientHeight * window.devicePixelRatio;
   previewCtx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+  renderer.setSize(previewGlCanvas.clientWidth, previewGlCanvas.clientHeight, false);
 }
 window.addEventListener("resize", resize);
 resize();
@@ -42,6 +68,10 @@ function renderSceneButtons() {
 function setSceneIndex(i: number) {
   sceneIndex = i;
   renderSceneButtons();
+  updateCanvasVisibility();
+  // display:none の間は clientWidth/Height が0になり renderer.setSize に反映できないため、
+  // 表示状態を切り替えた直後に再計算する。
+  resize();
 }
 
 function setIntensity(v: number) {
@@ -61,6 +91,7 @@ async function enableMic() {
 }
 
 renderSceneButtons();
+updateCanvasVisibility();
 setIntensity(manualIntensity);
 
 intensitySlider.addEventListener("input", () => {
@@ -142,15 +173,30 @@ function tick() {
 // プレビュー描画は見た目の滑らかさ優先でrAFのまま。操作窓が隠れて一時的に
 // 止まっても実害はない(音声解析・投影窓への送信は上記tickが継続する)。
 function renderPreview() {
-  const width = previewCanvas.clientWidth;
-  const height = previewCanvas.clientHeight;
-  scenes[latestState.sceneIndex].render({
-    ctx: previewCtx,
-    width,
-    height,
-    time: latestState.time,
-    audio: latestState.audio,
-  });
+  const scene = scenes[latestState.sceneIndex];
+
+  if (scene.kind === "2d") {
+    const width = previewCanvas.clientWidth;
+    const height = previewCanvas.clientHeight;
+    scene.render({
+      ctx: previewCtx,
+      width,
+      height,
+      time: latestState.time,
+      audio: latestState.audio,
+    });
+  } else {
+    const width = previewGlCanvas.clientWidth;
+    const height = previewGlCanvas.clientHeight;
+    scene.render({
+      renderer,
+      width,
+      height,
+      time: latestState.time,
+      audio: latestState.audio,
+    });
+  }
+
   requestAnimationFrame(renderPreview);
 }
 
