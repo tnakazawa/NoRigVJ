@@ -16,15 +16,16 @@ const fragmentShader = `
   uniform float uVolume;
   uniform float uBass;
   uniform float uTreble;
+  uniform float uAspect;
   uniform vec3 uMainColor;
   uniform vec3 uSubColor;
   varying vec2 vUv;
 
-  vec2 rotate(vec2 uv, float angle) {
+  vec2 rotate(vec2 v, float angle) {
     float s = sin(angle);
     float c = cos(angle);
     mat2 rot = mat2(c, -s, s, c);
-    return rot * (uv - 0.5) + 0.5;
+    return rot * v;
   }
 
   void main() {
@@ -33,16 +34,21 @@ const fragmentShader = `
     float bass = clamp(uBass, 0.0, 1.0);
     float treble = clamp(uTreble, 0.0, 1.0);
 
+    // canvasの縦横比を補正した中心基準の座標系(これがないとcanvasが正方形でない時に
+    // 発光や回転が楕円に潰れる)
+    vec2 aspectVec = vec2(uAspect, 1.0);
+    vec2 centered = (vUv - 0.5) * aspectVec;
+
     // 前フレームをわずかに回転・縮小させながらサンプリングし、渦を巻くような残像を作る
     float angle = 0.01 + bass * 0.03;
-    vec2 uv = rotate(vUv, angle);
-    uv = (uv - 0.5) * (1.0 - 0.01 - treble * 0.01) + 0.5;
+    vec2 rotated = rotate(centered, angle) * (1.0 - 0.01 - treble * 0.01);
+    vec2 uv = rotated / aspectVec + 0.5;
     vec3 prev = texture2D(uPrevFrame, uv).rgb * 0.9;
 
     // 中心から音量に応じて発光する種火を継ぎ足す(減衰0.9との釣り合いで収束値が1.0を超えないよう調整)
     // 発光色はメイン⇔サブの2色間を時間でゆっくり往復させる(色相が回り続ける表現はやめている)
-    float d = distance(vUv, vec2(0.5));
-    float glow = smoothstep(0.25, 0.0, d) * (0.01 + volume * 0.05);
+    float d = length(centered);
+    float glow = smoothstep(0.25 * 1.25, 0.0, d) * (0.01 + volume * 0.05 * 1.75);
     float mixAmount = 0.5 + 0.5 * sin(uTime * 0.5);
     vec3 seed = glow * mix(uMainColor, uSubColor, mixAmount);
 
@@ -86,6 +92,7 @@ const createFeedbackLoopScene: SceneFactory = () => {
           uVolume: { value: 0 },
           uBass: { value: 0 },
           uTreble: { value: 0 },
+          uAspect: { value: 1 },
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
         },
@@ -104,6 +111,7 @@ const createFeedbackLoopScene: SceneFactory = () => {
       material.uniforms.uVolume.value = ctx.audio.volume;
       material.uniforms.uBass.value = ctx.audio.bass;
       material.uniforms.uTreble.value = ctx.audio.treble;
+      material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
 

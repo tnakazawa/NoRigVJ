@@ -11,12 +11,19 @@ const createNoiseFieldScene: SceneFactory = () => {
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.fillRect(0, 0, width, height);
 
-      const count = 60 + Math.floor(audio.treble * 200);
+      // 音声反応が鈍かったため、1.2倍敏感にする
+      const volume = audio.volume * 1.2;
+      const treble = audio.treble * 1.2;
+
+      // パーティクルサイズは画面サイズ(小さい方の辺)を基準にスケールする
+      const baseSize = Math.min(width, height) * 0.006;
+      const count = 150 + Math.floor(treble * 300);
       for (let i = 0; i < count; i++) {
-        const a = i * 12.9898 + time * 3.7;
+        // 動きを遅くするため time の係数を小さくしている
+        const a = i * 12.9898 + time * 1.6;
         const x = (Math.sin(a) * 0.5 + 0.5) * width;
         const y = (Math.cos(a * 1.3) * 0.5 + 0.5) * height;
-        const r = 1 + audio.volume * 6;
+        const r = baseSize * (1 + volume * 3);
         // パーティクルごとに固定の疑似乱数(iベース)でメイン/サブ間を補間する。
         // time を使わないことで、色自体が時間で変化しないようにしている。
         const t = Math.sin(i * 7.3) * 0.5 + 0.5;
