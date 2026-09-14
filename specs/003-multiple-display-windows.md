@@ -39,7 +39,7 @@
 ## 実装メモ
 
 - `windowId` は `crypto.randomUUID()` で生成し、`window.open(url, windowId, features)` の第2引数(ウィンドウターゲット名)にも同じ値を使っている。
-- 操作UI([src/control.ts](../src/control.ts))は `displays: Map<windowId, DisplayEntry>` で管理する。`DisplayEntry` は `window`・`sceneIndex`・投影窓専用の `scenes: Scene[]`・専用の `THREE.WebGLRenderer`・プレビュー用canvas2枚・行のDOM要素を持つ。投影窓を追加するたびに `sceneFactories.map(f => f())` で新しいシーンインスタンス一式を生成し、WebGLシーンの `init` もその場で呼ぶ。
+- 操作UI([src/control.ts](../src/control.ts))は `displays: Map<windowId, DisplayEntry>` で管理する。`DisplayEntry` は `window`・`sceneIndex`・投影窓専用の `scenes: Scene[]`・専用の `THREE.WebGLRenderer`・プレビュー用canvas2枚・行のDOM要素を持つ。投影窓を追加するたびに `sceneFactories.map(f => f())` で新しいシーンインスタンス一式を生成し、WebGLシーンの `init` もその場で呼ぶ。**[specs/006-scene-crossfade.md](006-scene-crossfade.md)でこの構造は`Layer`([src/layer.ts](../src/layer.ts))という概念に置き換えられた**: `DisplayEntry` は「全シーンの事前生成配列」の代わりに「現在のレイヤー1つ」を持つ形になっている。
 - 投影窓の生存確認(`closed` 判定)は `tick()`(Worker駆動、[specs/001](001-multi-window-projection.md)参照)内で全エントリを毎回チェックし、閉じられていたら一覧から自動的に除去する。反復中にMapを変更するため `[...displays]` でコピーしてからループしている。
 - 「閉じる」ボタン押下時・自動除去時とも、`entry.renderer.dispose()` でWebGLリソースを解放している(RenderTarget個別のdisposeまでは行っていない)。
 - HUD(旧 `#hud`)は「今どのシーンを見ているか」がグローバルに1つでなくなったため廃止。マイク状態・強度・投影窓接続数はパネル側の既存表示(ボタンのラベル、`#status` 等)に統合した。

@@ -156,6 +156,15 @@
       button:hover {
         border-color: #888;
       }
+      button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .crossfade-btn {
+        background: #2d6a4f;
+        border-color: #52b788;
+        text-align: center;
+      }
       input[type="range"] {
         width: 100%;
       }
@@ -177,6 +186,10 @@
         <section>
           <strong>強度: <span id="intensity-value">1.0</span></strong>
           <input type="range" id="intensity" min="0" max="3" step="0.1" value="1" />
+        </section>
+        <section>
+          <strong>クロスフェード時間: <span id="crossfade-duration-value">1.0</span>秒</strong>
+          <input type="range" id="crossfade-duration" min="0.2" max="5" step="0.1" value="1" />
         </section>
         <section>
           <button id="mic-toggle">マイク有効化 (Space)</button>

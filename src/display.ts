@@ -1,56 +1,29 @@
-import * as THREE from "three";
+import { startCrossfade } from "./crossfade";
+import { createLayer, disposeLayer, renderLayer, resizeLayer, type Layer } from "./layer";
 import { DEFAULT_PALETTE } from "./palettes";
-import { sceneFactories, type Scene } from "./scenes";
+import { sceneNames } from "./scenes";
 import { CHANNEL_NAME, type VJState } from "./shared";
 
 const windowId = new URLSearchParams(location.search).get("windowId") ?? "";
 
-const canvas = document.getElementById("stage") as HTMLCanvasElement;
-const glCanvas = document.getElementById("stage-gl") as HTMLCanvasElement;
-const ctx = canvas.getContext("2d")!;
+const stageWrap = document.getElementById("stage-wrap")!;
 
-const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true });
+let currentLayer: Layer = createLayer(0, DEFAULT_PALETTE);
+stageWrap.appendChild(currentLayer.wrapEl);
+resizeLayer(currentLayer, window.innerWidth, window.innerHeight);
 
-// 投影窓専用のシーンインスタンス群。操作UI側のプレビューとは別インスタンスを持つ
-// (WebGLシーンはRenderTargetなどの状態をインスタンスごとに抱えるため)。
-const scenes: Scene[] = sceneFactories.map((factory) => factory());
-scenes.forEach((scene) => {
-  if (scene.kind === "webgl" && scene.init) {
-    scene.init({
-      renderer,
-      width: window.innerWidth,
-      height: window.innerHeight,
-      time: 0,
-      audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
-      palette: DEFAULT_PALETTE,
-    });
-  }
-});
+let crossfading: { layer: Layer; instructionId: string } | null = null;
+let lastCrossfadeId: string | null = null;
 
 let latest: VJState | null = null;
 
-function currentSceneIndex(): number {
-  return latest?.sceneIndexByWindow[windowId] ?? 0;
-}
-
-function currentPalette() {
-  return latest?.paletteByWindow[windowId] ?? DEFAULT_PALETTE;
-}
-
-function updateCanvasVisibility() {
-  const isWebGL = latest ? scenes[currentSceneIndex()]?.kind === "webgl" : false;
-  canvas.style.display = isWebGL ? "none" : "block";
-  glCanvas.style.display = isWebGL ? "block" : "none";
-}
-
 function resize() {
-  canvas.width = window.innerWidth * window.devicePixelRatio;
-  canvas.height = window.innerHeight * window.devicePixelRatio;
-  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  resizeLayer(currentLayer, window.innerWidth, window.innerHeight);
+  if (crossfading) {
+    resizeLayer(crossfading.layer, window.innerWidth, window.innerHeight);
+  }
 }
 window.addEventListener("resize", resize);
-resize();
 
 window.addEventListener("keydown", (e) => {
   if (e.key === "f" || e.key === "F") {
@@ -65,7 +38,30 @@ window.addEventListener("keydown", (e) => {
 const channel = new BroadcastChannel(CHANNEL_NAME);
 channel.onmessage = (e: MessageEvent<VJState>) => {
   latest = e.data;
-  updateCanvasVisibility();
+
+  const instruction = latest.crossfadeByWindow[windowId];
+  if (instruction && instruction.id !== lastCrossfadeId && !crossfading) {
+    lastCrossfadeId = instruction.id;
+    const toSceneIndex = sceneNames.indexOf(instruction.toSceneName);
+    if (toSceneIndex === -1) {
+      console.warn(`クロスフェード先のシーン "${instruction.toSceneName}" が見つかりません`);
+      return;
+    }
+    const toLayer = createLayer(toSceneIndex, instruction.toPalette);
+    crossfading = { layer: toLayer, instructionId: instruction.id };
+    startCrossfade(
+      stageWrap,
+      currentLayer,
+      toLayer,
+      window.innerWidth,
+      window.innerHeight,
+      instruction.durationMs,
+      (finishedLayer) => {
+        currentLayer = finishedLayer;
+        crossfading = null;
+      },
+    );
+  }
 };
 
 function loop() {
@@ -73,12 +69,9 @@ function loop() {
   const height = window.innerHeight;
 
   if (latest) {
-    const scene = scenes[currentSceneIndex()] ?? scenes[0];
-    const palette = currentPalette();
-    if (scene.kind === "2d") {
-      scene.render({ ctx, width, height, time: latest.time, audio: latest.audio, palette });
-    } else {
-      scene.render({ renderer, width, height, time: latest.time, audio: latest.audio, palette });
+    renderLayer(currentLayer, width, height, latest.time, latest.audio);
+    if (crossfading) {
+      renderLayer(crossfading.layer, width, height, latest.time, latest.audio);
     }
   }
 
@@ -86,3 +79,8 @@ function loop() {
 }
 
 loop();
+
+window.addEventListener("beforeunload", () => {
+  disposeLayer(currentLayer);
+  if (crossfading) disposeLayer(crossfading.layer);
+});

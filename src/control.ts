@@ -1,20 +1,24 @@
-import * as THREE from "three";
 import { AudioAnalyzer, type AudioLevels } from "./audio";
+import { startCrossfade } from "./crossfade";
+import { createLayer, disposeLayer, renderLayer, resizeLayer, type Layer } from "./layer";
 import { DEFAULT_PALETTE, PALETTE_PRESETS } from "./palettes";
 import { deletePreset, loadPresets, savePreset } from "./presets";
-import { sceneFactories, type Palette, type Scene } from "./scenes";
-import { CHANNEL_NAME, type VJState } from "./shared";
+import { sceneNames, type Palette } from "./scenes";
+import { CHANNEL_NAME, type CrossfadeInstruction, type VJState } from "./shared";
 
 const displaysListEl = document.getElementById("displays-list")!;
 const displaysEmptyEl = document.getElementById("displays-empty")!;
 const intensitySlider = document.getElementById("intensity") as HTMLInputElement;
 const intensityValueEl = document.getElementById("intensity-value")!;
+const crossfadeDurationSlider = document.getElementById("crossfade-duration") as HTMLInputElement;
+const crossfadeDurationValueEl = document.getElementById("crossfade-duration-value")!;
 const micToggleBtn = document.getElementById("mic-toggle") as HTMLButtonElement;
 const addDisplayBtn = document.getElementById("add-display") as HTMLButtonElement;
 const statusEl = document.getElementById("status")!;
 
 let startTime = performance.now();
 let manualIntensity = 1; // ← / → キー、またはスライダーで調整
+let crossfadeDurationMs = 1000;
 let latestAudio: AudioLevels = { volume: 0, bass: 0, mid: 0, treble: 0 };
 let latestTime = 0;
 
@@ -24,21 +28,24 @@ const channel = new BroadcastChannel(CHANNEL_NAME);
 interface DisplayEntry {
   id: string;
   window: Window;
-  sceneIndex: number;
-  palette: Palette;
-  scenes: Scene[];
-  renderer: THREE.WebGLRenderer;
-  previewCanvas: HTMLCanvasElement;
-  previewCtx: CanvasRenderingContext2D;
-  previewGlCanvas: HTMLCanvasElement;
+  /** 実際にプレビュー・投影窓に描画されている「現在」のレイヤー */
+  currentLayer: Layer;
+  /** クロスフェード実行中のみ存在する「遷移先」のレイヤーと、その instruction id */
+  crossfading: { layer: Layer; instructionId: string } | null;
+  /** シーン選択・パレットUI・プリセット選択が編集する「予約」state。
+   * クロスフェード実行ボタンを押すまで表示には反映されない。 */
+  pendingSceneIndex: number;
+  pendingPalette: Palette;
   rowEl: HTMLElement;
+  previewWrap: HTMLElement;
+  selectEl: HTMLSelectElement;
   paletteSelectEl: HTMLSelectElement;
   mainColorInput: HTMLInputElement;
   subColorInput: HTMLInputElement;
   presetSelectEl: HTMLSelectElement;
+  crossfadeBtn: HTMLButtonElement;
 }
 
-// 投影窓ごとに独立したシーンインスタンス・プレビュー用canvas/renderer・パレットを保持する。
 // windowId(BroadcastChannelで各投影窓を識別するキー)をMapのキーにする。
 const displays = new Map<string, DisplayEntry>();
 let displayCounter = 0;
@@ -47,17 +54,24 @@ function updateDisplaysEmptyVisibility() {
   displaysEmptyEl.style.display = displays.size === 0 ? "block" : "none";
 }
 
-function updateDisplayCanvasVisibility(entry: DisplayEntry) {
-  const isWebGL = entry.scenes[entry.sceneIndex].kind === "webgl";
-  entry.previewCanvas.style.display = isWebGL ? "none" : "block";
-  entry.previewGlCanvas.style.display = isWebGL ? "block" : "none";
+function palettesEqual(a: Palette, b: Palette): boolean {
+  return a.main === b.main && a.sub === b.sub;
 }
 
-function updateDisplayPaletteUI(entry: DisplayEntry) {
-  const supportsPalette = entry.scenes[entry.sceneIndex].supportsPalette;
-  entry.paletteSelectEl.disabled = !supportsPalette;
-  entry.mainColorInput.disabled = !supportsPalette;
-  entry.subColorInput.disabled = !supportsPalette;
+function updateCrossfadeButtonState(entry: DisplayEntry) {
+  const same =
+    entry.pendingSceneIndex === entry.currentLayer.sceneIndex &&
+    palettesEqual(entry.pendingPalette, entry.currentLayer.palette);
+  entry.crossfadeBtn.disabled = same || entry.crossfading !== null;
+}
+
+function resizeEntry(entry: DisplayEntry) {
+  const width = entry.previewWrap.clientWidth || 1;
+  const height = entry.previewWrap.clientHeight || 1;
+  resizeLayer(entry.currentLayer, width, height);
+  if (entry.crossfading) {
+    resizeLayer(entry.crossfading.layer, width, height);
+  }
 }
 
 function populatePresetSelect(selectEl: HTMLSelectElement) {
@@ -87,22 +101,12 @@ function refreshAllPresetSelects() {
   displays.forEach((entry) => populatePresetSelect(entry.presetSelectEl));
 }
 
-function resizeDisplayEntry(entry: DisplayEntry) {
-  entry.previewCanvas.width = entry.previewCanvas.clientWidth * window.devicePixelRatio;
-  entry.previewCanvas.height = entry.previewCanvas.clientHeight * window.devicePixelRatio;
-  entry.previewCtx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
-  entry.renderer.setSize(entry.previewGlCanvas.clientWidth, entry.previewGlCanvas.clientHeight, false);
-}
-
 function createDisplayRow(label: number) {
   const rowEl = document.createElement("div");
   rowEl.className = "display-row";
 
   const previewWrap = document.createElement("div");
   previewWrap.className = "display-preview";
-  const previewCanvas = document.createElement("canvas");
-  const previewGlCanvas = document.createElement("canvas");
-  previewWrap.append(previewCanvas, previewGlCanvas);
 
   const controls = document.createElement("div");
   controls.className = "display-row-controls";
@@ -112,6 +116,12 @@ function createDisplayRow(label: number) {
   labelEl.textContent = `投影窓 ${label}`;
 
   const selectEl = document.createElement("select");
+  sceneNames.forEach((name, i) => {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = name;
+    selectEl.appendChild(option);
+  });
 
   const paletteRow = document.createElement("div");
   paletteRow.className = "palette-row";
@@ -146,17 +156,20 @@ function createDisplayRow(label: number) {
   presetDeleteBtn.textContent = "削除";
   presetRow.append(presetSaveBtn, presetSelectEl, presetDeleteBtn);
 
+  const crossfadeBtn = document.createElement("button");
+  crossfadeBtn.className = "crossfade-btn";
+  crossfadeBtn.textContent = "クロスフェード実行";
+
   const closeBtn = document.createElement("button");
   closeBtn.className = "close-btn";
   closeBtn.textContent = "閉じる";
 
-  controls.append(labelEl, selectEl, paletteRow, presetRow, closeBtn);
+  controls.append(labelEl, selectEl, paletteRow, presetRow, crossfadeBtn, closeBtn);
   rowEl.append(previewWrap, controls);
 
   return {
     rowEl,
-    previewCanvas,
-    previewGlCanvas,
+    previewWrap,
     selectEl,
     paletteSelectEl,
     mainColorInput,
@@ -164,8 +177,27 @@ function createDisplayRow(label: number) {
     presetSaveBtn,
     presetSelectEl,
     presetDeleteBtn,
+    crossfadeBtn,
     closeBtn,
   };
+}
+
+function startEntryCrossfade(entry: DisplayEntry) {
+  if (entry.crossfading) return;
+
+  const instructionId = crypto.randomUUID();
+  const toLayer = createLayer(entry.pendingSceneIndex, { ...entry.pendingPalette });
+  entry.crossfading = { layer: toLayer, instructionId };
+  updateCrossfadeButtonState(entry);
+
+  const width = entry.previewWrap.clientWidth || 1;
+  const height = entry.previewWrap.clientHeight || 1;
+
+  startCrossfade(entry.previewWrap, entry.currentLayer, toLayer, width, height, crossfadeDurationMs, (finishedLayer) => {
+    entry.currentLayer = finishedLayer;
+    entry.crossfading = null;
+    updateCrossfadeButtonState(entry);
+  });
 }
 
 function addDisplay() {
@@ -180,8 +212,7 @@ function addDisplay() {
 
   const {
     rowEl,
-    previewCanvas,
-    previewGlCanvas,
+    previewWrap,
     selectEl,
     paletteSelectEl,
     mainColorInput,
@@ -189,120 +220,102 @@ function addDisplay() {
     presetSaveBtn,
     presetSelectEl,
     presetDeleteBtn,
+    crossfadeBtn,
     closeBtn,
   } = createDisplayRow(displayCounter);
   displaysListEl.appendChild(rowEl);
 
-  const previewCtx = previewCanvas.getContext("2d")!;
-  const renderer = new THREE.WebGLRenderer({ canvas: previewGlCanvas, antialias: true });
-
-  // 投影窓ごとに独立したシーンインスタンス群を持つ(WebGLシーンはRenderTargetなどの
-  // 状態をインスタンスごとに抱えるため、操作UI側のプレビューも専用インスタンスが必要)。
-  const scenes: Scene[] = sceneFactories.map((factory) => factory());
-  scenes.forEach((scene) => {
-    if (scene.kind === "webgl" && scene.init) {
-      scene.init({
-        renderer,
-        width: previewGlCanvas.clientWidth || 1,
-        height: previewGlCanvas.clientHeight || 1,
-        time: 0,
-        audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
-        palette: DEFAULT_PALETTE,
-      });
-    }
-  });
-
-  scenes.forEach((scene, i) => {
-    const option = document.createElement("option");
-    option.value = String(i);
-    option.textContent = scene.name;
-    selectEl.appendChild(option);
-  });
+  const initialLayer = createLayer(0, { ...DEFAULT_PALETTE });
+  previewWrap.appendChild(initialLayer.wrapEl);
+  resizeLayer(initialLayer, previewWrap.clientWidth || 1, previewWrap.clientHeight || 1);
 
   const entry: DisplayEntry = {
     id,
     window: opened,
-    sceneIndex: 0,
-    palette: { ...DEFAULT_PALETTE },
-    scenes,
-    renderer,
-    previewCanvas,
-    previewCtx,
-    previewGlCanvas,
+    currentLayer: initialLayer,
+    crossfading: null,
+    pendingSceneIndex: 0,
+    pendingPalette: { ...DEFAULT_PALETTE },
     rowEl,
+    previewWrap,
+    selectEl,
     paletteSelectEl,
     mainColorInput,
     subColorInput,
     presetSelectEl,
+    crossfadeBtn,
   };
 
+  selectEl.value = "0";
   paletteSelectEl.value = "0";
+  mainColorInput.value = entry.pendingPalette.main;
+  subColorInput.value = entry.pendingPalette.sub;
   populatePresetSelect(presetSelectEl);
-  mainColorInput.value = entry.palette.main;
-  subColorInput.value = entry.palette.sub;
+  updateCrossfadeButtonState(entry);
 
   selectEl.addEventListener("change", () => {
-    entry.sceneIndex = Number(selectEl.value);
-    updateDisplayCanvasVisibility(entry);
-    updateDisplayPaletteUI(entry);
-    // display:none の間は clientWidth/Height が0になり renderer.setSize に反映できないため、
-    // 表示状態を切り替えた直後に再計算する。
-    resizeDisplayEntry(entry);
+    entry.pendingSceneIndex = Number(selectEl.value);
+    updateCrossfadeButtonState(entry);
   });
 
   paletteSelectEl.addEventListener("change", () => {
     if (paletteSelectEl.value === "custom") return;
     const preset = PALETTE_PRESETS[Number(paletteSelectEl.value)];
-    entry.palette = { ...preset.palette };
+    entry.pendingPalette = { ...preset.palette };
     mainColorInput.value = preset.palette.main;
     subColorInput.value = preset.palette.sub;
+    updateCrossfadeButtonState(entry);
   });
 
   mainColorInput.addEventListener("input", () => {
-    entry.palette = { ...entry.palette, main: mainColorInput.value };
+    entry.pendingPalette = { ...entry.pendingPalette, main: mainColorInput.value };
     paletteSelectEl.value = "custom";
+    updateCrossfadeButtonState(entry);
   });
 
   subColorInput.addEventListener("input", () => {
-    entry.palette = { ...entry.palette, sub: subColorInput.value };
+    entry.pendingPalette = { ...entry.pendingPalette, sub: subColorInput.value };
     paletteSelectEl.value = "custom";
+    updateCrossfadeButtonState(entry);
   });
 
   presetSaveBtn.addEventListener("click", () => {
     const name = prompt("プリセット名を入力してください");
     if (!name) return;
-    const sceneName = entry.scenes[entry.sceneIndex].name;
-    savePreset(name, sceneName, entry.palette);
+    const sceneName = sceneNames[entry.pendingSceneIndex];
+    savePreset(name, sceneName, entry.pendingPalette);
     refreshAllPresetSelects();
   });
 
   presetSelectEl.addEventListener("change", () => {
-    const id = presetSelectEl.value;
-    if (!id) return;
-    const preset = loadPresets().find((p) => p.id === id);
+    const presetId = presetSelectEl.value;
+    if (!presetId) return;
+    const preset = loadPresets().find((p) => p.id === presetId);
     if (!preset) return;
-    const sceneIdx = entry.scenes.findIndex((s) => s.name === preset.sceneName);
+    const sceneIdx = sceneNames.indexOf(preset.sceneName);
     if (sceneIdx === -1) {
       console.warn(`プリセット "${preset.name}" が参照するシーン "${preset.sceneName}" が見つかりません`);
       return;
     }
-    entry.sceneIndex = sceneIdx;
-    entry.palette = { ...preset.palette };
+    entry.pendingSceneIndex = sceneIdx;
+    entry.pendingPalette = { ...preset.palette };
     selectEl.value = String(sceneIdx);
     mainColorInput.value = preset.palette.main;
     subColorInput.value = preset.palette.sub;
     // プリセットのパレットはPALETTE_PRESETSのいずれかと一致するとは限らないため、カスタム扱いにする
     paletteSelectEl.value = "custom";
-    updateDisplayCanvasVisibility(entry);
-    updateDisplayPaletteUI(entry);
-    resizeDisplayEntry(entry);
+    updateCrossfadeButtonState(entry);
   });
 
   presetDeleteBtn.addEventListener("click", () => {
-    const id = presetSelectEl.value;
-    if (!id) return;
-    deletePreset(id);
+    const presetId = presetSelectEl.value;
+    if (!presetId) return;
+    deletePreset(presetId);
     refreshAllPresetSelects();
+  });
+
+  crossfadeBtn.addEventListener("click", () => {
+    startEntryCrossfade(entry);
   });
 
   closeBtn.addEventListener("click", () => {
@@ -310,9 +323,6 @@ function addDisplay() {
   });
 
   displays.set(id, entry);
-  updateDisplayCanvasVisibility(entry);
-  updateDisplayPaletteUI(entry);
-  resizeDisplayEntry(entry);
   updateDisplaysEmptyVisibility();
 }
 
@@ -322,7 +332,10 @@ function removeDisplay(id: string) {
   if (!entry.window.closed) {
     entry.window.close();
   }
-  entry.renderer.dispose();
+  disposeLayer(entry.currentLayer);
+  if (entry.crossfading) {
+    disposeLayer(entry.crossfading.layer);
+  }
   entry.rowEl.remove();
   displays.delete(id);
   updateDisplaysEmptyVisibility();
@@ -333,13 +346,18 @@ addDisplayBtn.addEventListener("click", () => {
 });
 
 window.addEventListener("resize", () => {
-  displays.forEach((entry) => resizeDisplayEntry(entry));
+  displays.forEach((entry) => resizeEntry(entry));
 });
 
 function setIntensity(v: number) {
   manualIntensity = Math.min(3, Math.max(0, v));
   intensitySlider.value = String(manualIntensity);
   intensityValueEl.textContent = manualIntensity.toFixed(1);
+}
+
+function setCrossfadeDuration(seconds: number) {
+  crossfadeDurationMs = Math.round(seconds * 1000);
+  crossfadeDurationValueEl.textContent = seconds.toFixed(1);
 }
 
 async function enableMic() {
@@ -353,9 +371,14 @@ async function enableMic() {
 }
 
 setIntensity(manualIntensity);
+setCrossfadeDuration(Number(crossfadeDurationSlider.value));
 
 intensitySlider.addEventListener("input", () => {
   setIntensity(Number(intensitySlider.value));
+});
+
+crossfadeDurationSlider.addEventListener("input", () => {
+  setCrossfadeDuration(Number(crossfadeDurationSlider.value));
 });
 
 micToggleBtn.addEventListener("click", () => {
@@ -412,14 +435,24 @@ function tick() {
 
   const sceneIndexByWindow: Record<string, number> = {};
   const paletteByWindow: Record<string, Palette> = {};
+  const crossfadeByWindow: Record<string, CrossfadeInstruction | undefined> = {};
   displays.forEach((entry, id) => {
-    sceneIndexByWindow[id] = entry.sceneIndex;
-    paletteByWindow[id] = entry.palette;
+    sceneIndexByWindow[id] = entry.currentLayer.sceneIndex;
+    paletteByWindow[id] = entry.currentLayer.palette;
+    if (entry.crossfading) {
+      crossfadeByWindow[id] = {
+        id: entry.crossfading.instructionId,
+        toSceneName: sceneNames[entry.crossfading.layer.sceneIndex],
+        toPalette: entry.crossfading.layer.palette,
+        durationMs: crossfadeDurationMs,
+      };
+    }
   });
 
   const state: VJState = {
     sceneIndexByWindow,
     paletteByWindow,
+    crossfadeByWindow,
     intensity: manualIntensity,
     audio: scaledLevels,
     time,
@@ -433,22 +466,11 @@ function tick() {
 // 止まっても実害はない(音声解析・投影窓への送信は上記tickが継続する)。
 function renderPreviews() {
   displays.forEach((entry) => {
-    const scene = entry.scenes[entry.sceneIndex];
-    if (scene.kind === "2d") {
-      const width = entry.previewCanvas.clientWidth;
-      const height = entry.previewCanvas.clientHeight;
-      scene.render({ ctx: entry.previewCtx, width, height, time: latestTime, audio: latestAudio, palette: entry.palette });
-    } else {
-      const width = entry.previewGlCanvas.clientWidth;
-      const height = entry.previewGlCanvas.clientHeight;
-      scene.render({
-        renderer: entry.renderer,
-        width,
-        height,
-        time: latestTime,
-        audio: latestAudio,
-        palette: entry.palette,
-      });
+    const width = entry.previewWrap.clientWidth || 1;
+    const height = entry.previewWrap.clientHeight || 1;
+    renderLayer(entry.currentLayer, width, height, latestTime, latestAudio);
+    if (entry.crossfading) {
+      renderLayer(entry.crossfading.layer, width, height, latestTime, latestAudio);
     }
   });
 

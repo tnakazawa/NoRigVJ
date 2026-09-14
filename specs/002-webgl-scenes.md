@@ -92,7 +92,7 @@
 
 - シーンモジュールは `SceneFactory`(`() => Scene`)を `default export` する形式に統一。`src/scenes/index.ts` が `import.meta.glob("./*.ts", { eager: true })` で自身(`index.ts`)を除く全ファイルを収集し、パス文字列でソートしてファクトリ配列を作る。`import.meta.glob` の型解決には `tsconfig.json` の `compilerOptions.types` に `"vite/client"` を追加する必要があった。
 - ヘルパー(型定義・色ユーティリティ)は `src/scenes/_shared/` に置き、シーンとして誤収集されないようにした。
-- 操作UI(`control.ts`)・投影窓(`display.ts`)は、それぞれ独自の `THREE.WebGLRenderer` を持ち、`sceneFactories.map(f => f())` で自分専用のシーンインスタンス配列を生成する。WebGLシーンの `init()` はページロード時に全WebGLシーンへ一括で呼んでいる(シーン数が少ないため、切替時の遅延初期化はせず先出しでコンパイルしている)。
+- 操作UI(`control.ts`)・投影窓(`display.ts`)は、それぞれ独自の `THREE.WebGLRenderer` を持ち、`sceneFactories.map(f => f())` で自分専用のシーンインスタンス配列を生成する。WebGLシーンの `init()` はページロード時に全WebGLシーンへ一括で呼んでいる(シーン数が少ないため、切替時の遅延初期化はせず先出しでコンパイルしている)。**[specs/006-scene-crossfade.md](006-scene-crossfade.md)でこの方式は変更された**: クロスフェード対応のため、「投影窓ごとに全シーンを事前生成して使い回す」設計から「シーン切替のたびに新しいレイヤー(canvas+renderer+シーンインスタンス)を生成する」設計に変わっている。
 - **ハマった点**: 2D用/WebGL用canvasを重ねて `display: none` で切り替える構成にしたところ、シーン切替直後にWebGL描画が真っ黒になった。`display: none` の要素は `clientWidth`/`clientHeight` が0になり、`renderer.setSize()` に0が渡っていたのが原因。`setSceneIndex()` 内で表示切替の直後に `resize()` を呼び直すことで解消した。
 - **ハマった点**: フィードバックループの最初の実装では、前フレーム減衰(0.94)とシード強度(最大1.0)のバランスが悪く、数秒で中心が白飛びした。定常状態の収束値は `seed / (1 - decay)` になるため、`decay=0.9` にしつつシード強度を `0.01 + volume*0.05`(最大0.06)程度まで下げ、収束値が1.0を超えないよう調整した。また強度スライダー(0〜3倍)で音声値が1.0を超えることがあるため、シェーダー内で `clamp(uVolume/uBass/uTreble, 0.0, 1.0)` してから使うようにした。
 - 実機Chrome(開発サーバー上の2タブ)でシーン自動収集・Feedback Loop切替・強度調整・BroadcastChannel同期を確認済み。Fullscreen APIは検証環境の制約で未確認([specs/001-multi-window-projection.md](001-multi-window-projection.md)と同様)。
