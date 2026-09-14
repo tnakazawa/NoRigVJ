@@ -36,9 +36,11 @@ const createWireframePolyhedronScene: SceneFactory = () => {
       camera.aspect = ctx.width / ctx.height;
       camera.updateProjectionMatrix();
 
-      // 強度調整(0〜3倍)で音声レベルが1.0を超えても発散しないようクランプする
-      const volume = Math.min(1, ctx.audio.volume);
-      const bass = Math.min(1, ctx.audio.bass);
+      // volume/bassは回転速度・スケールに使うだけで発散の心配がないため、Intensity(0〜9倍)を
+      // 上げても変化が続くよう上限は高めにする。trebleは不透明度(0-1の範囲で意味を持つ)用途のため
+      // 上限は1のままにする
+      const volume = Math.min(3, ctx.audio.volume);
+      const bass = Math.min(3, ctx.audio.bass);
       const treble = Math.min(1, ctx.audio.treble);
 
       const [mr, mg, mb] = hexToRgb(ctx.palette.main);

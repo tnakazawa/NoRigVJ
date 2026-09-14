@@ -68,10 +68,12 @@ const createBloomParticlesScene: SceneFactory = () => {
       camera.updateProjectionMatrix();
       composer.setSize(ctx.width, ctx.height);
 
-      // 強度調整(0〜3倍)で音声レベルが1.0を超えても発散しないようクランプする
-      const volume = Math.min(1, ctx.audio.volume);
-      const bass = Math.min(1, ctx.audio.bass);
-      const treble = Math.min(1, ctx.audio.treble);
+      // bass/trebleは揺れの速さ・幅に使うだけで発散の心配がないため、Intensity(0〜9倍)を
+      // 上げても変化が続くよう上限は高めにする。volumeはBloomの発光強度に直結し、上げすぎると
+      // 画面全体が白飛びするため上限は控えめにしている
+      const volume = Math.min(2, ctx.audio.volume);
+      const bass = Math.min(3, ctx.audio.bass);
+      const treble = Math.min(3, ctx.audio.treble);
 
       const positionAttr = points.geometry.getAttribute("position") as THREE.BufferAttribute;
       const colorAttr = points.geometry.getAttribute("color") as THREE.BufferAttribute;

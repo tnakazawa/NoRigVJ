@@ -481,7 +481,7 @@ window.addEventListener("resize", () => {
 });
 
 function setIntensity(v: number) {
-  manualIntensity = Math.min(3, Math.max(0, v));
+  manualIntensity = Math.min(9, Math.max(0, v));
   intensitySlider.value = String(manualIntensity);
   intensityValueEl.textContent = manualIntensity.toFixed(1);
 }

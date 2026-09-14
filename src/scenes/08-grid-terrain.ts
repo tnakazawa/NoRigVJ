@@ -9,9 +9,10 @@ const vertexShader = `
   varying float vElevation;
 
   void main() {
-    // 強度調整(0〜3倍)で音声レベルが1.0を超えても発散しないようクランプする
-    float bass = clamp(uBass, 0.0, 1.0);
-    float treble = clamp(uTreble, 0.0, 1.0);
+    // Intensity(0〜9倍)を上げても変化が続くよう上限は高めにクランプする。
+    // trebleは波の周波数に直結し、上げすぎると細かくなりすぎて見えなくなるため上限は控えめにしている
+    float bass = clamp(uBass, 0.0, 3.0);
+    float treble = clamp(uTreble, 0.0, 2.0);
 
     vec3 pos = position;
     // trebleで波の細かさ(周波数)、bassで振幅を変える
@@ -31,7 +32,7 @@ const fragmentShader = `
   varying float vElevation;
 
   void main() {
-    float volume = clamp(uVolume, 0.0, 1.0);
+    float volume = clamp(uVolume, 0.0, 3.0);
     // 高いところ(elevationが大きい)ほどsub寄りの色にする
     float t = clamp(vElevation * 0.5 + 0.5, 0.0, 1.0);
     vec3 color = mix(uMainColor, uSubColor, t);

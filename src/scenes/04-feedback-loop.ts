@@ -29,10 +29,12 @@ const fragmentShader = `
   }
 
   void main() {
-    // 強度調整(0〜3倍)で音声レベルが1.0を超えても発散しないようクランプする
+    // volumeは発光強度の収束値に直結するため発散防止で1.0までにクランプするが、
+    // bass/trebleは回転角・縮小率にしか使わず発散の心配がないため、Intensity(0〜9倍)を
+    // 上げても変化が続くよう上限を高めにしている
     float volume = clamp(uVolume, 0.0, 1.0);
-    float bass = clamp(uBass, 0.0, 1.0);
-    float treble = clamp(uTreble, 0.0, 1.0);
+    float bass = clamp(uBass, 0.0, 3.0);
+    float treble = clamp(uTreble, 0.0, 3.0);
 
     // canvasの縦横比を補正した中心基準の座標系(これがないとcanvasが正方形でない時に
     // 発光や回転が楕円に潰れる)

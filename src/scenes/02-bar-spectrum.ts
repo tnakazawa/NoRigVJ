@@ -39,10 +39,10 @@ const createBarSpectrumScene: SceneFactory = () => {
       camera.aspect = ctx.width / ctx.height;
       camera.updateProjectionMatrix();
 
-      // 強度調整(0〜3倍)で音声レベルが1.0を超えても発散しないようクランプする
-      const bass = Math.min(1, ctx.audio.bass);
-      const mid = Math.min(1, ctx.audio.mid);
-      const treble = Math.min(1, ctx.audio.treble);
+      // Intensity(0〜9倍)を上げても高さの変化が続くよう、上限は高めにクランプする
+      const bass = Math.min(2.5, ctx.audio.bass);
+      const mid = Math.min(2.5, ctx.audio.mid);
+      const treble = Math.min(2.5, ctx.audio.treble);
 
       for (let i = 0; i < BAR_COUNT; i++) {
         const n = Math.sin(i * 0.5 + ctx.time * 2) * 0.5 + 0.5;
@@ -52,8 +52,8 @@ const createBarSpectrumScene: SceneFactory = () => {
         const bassWeight = Math.max(0, 1 - pos * 2);
         const trebleWeight = Math.max(0, pos * 2 - 1);
         const midWeight = 1 - bassWeight - trebleWeight;
-        const level = Math.min(1, (bass * bassWeight + mid * midWeight + treble * trebleWeight) * n);
-        const height = 0.4 + level * 6;
+        const level = Math.min(2.5, (bass * bassWeight + mid * midWeight + treble * trebleWeight) * n);
+        const height = 0.4 + level * 4;
 
         dummy.position.set((pos - 0.5) * BAR_COUNT * 0.7, height / 2 - 1.5, 0);
         dummy.scale.set(1, height, 1);

@@ -41,8 +41,9 @@ const createPulseRingsScene: SceneFactory = () => {
       camera.aspect = ctx.width / ctx.height;
       camera.updateProjectionMatrix();
 
-      // 音声反応が敏感すぎたため、1.2で割って落ち着かせる(Canvas版を踏襲)
-      const bass = Math.min(1, ctx.audio.bass) / 1.2;
+      // 音声反応が敏感すぎたため、1.2で割って落ち着かせる(Canvas版を踏襲)。
+      // bassは半径のうねり幅に使うため、Intensity(0〜9倍)を上げても変化が続くよう上限を高めにしている
+      const bass = Math.min(3, ctx.audio.bass) / 1.2;
       const volume = Math.min(1, ctx.audio.volume) / 1.2;
 
       // Trigger 1の立ち上がり(発生の瞬間)を捉えてリングを1本追加する

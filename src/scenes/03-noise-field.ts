@@ -44,8 +44,9 @@ const createNoiseFieldScene: SceneFactory = () => {
       camera.aspect = ctx.width / ctx.height;
       camera.updateProjectionMatrix();
 
-      // 音声反応が鈍かったため、1.5倍敏感にする(Canvas版を踏襲)
-      const volume = Math.min(1, ctx.audio.volume) * 1.5;
+      // 音声反応が鈍かったため、1.5倍敏感にする(Canvas版を踏襲)。
+      // パーティクルサイズに使うため、Intensity(0〜9倍)を上げても変化が続くよう上限は高めにする
+      const volume = Math.min(3, ctx.audio.volume) * 1.5;
 
       // Trigger 2(Freeze): 発生中はパーティクル位置の計算に使う時間経過を止める
       if (ctx.triggers[1] > 0.01) {

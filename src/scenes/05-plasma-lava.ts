@@ -21,10 +21,11 @@ const fragmentShader = `
   varying vec2 vUv;
 
   void main() {
-    // 強度調整(0〜3倍)で音声レベルが1.0を超えても発散しないようクランプする
-    float volume = clamp(uVolume, 0.0, 1.0);
-    float bass = clamp(uBass, 0.0, 1.0);
-    float treble = clamp(uTreble, 0.0, 1.0);
+    // 速度・周波数・明るさに使うだけで発散の心配がないため、Intensity(0〜9倍)を
+    // 上げても変化が続くよう上限は高めにクランプする
+    float volume = clamp(uVolume, 0.0, 3.0);
+    float bass = clamp(uBass, 0.0, 3.0);
+    float treble = clamp(uTreble, 0.0, 3.0);
 
     vec2 aspectVec = vec2(uAspect, 1.0);
     vec2 p = (vUv - 0.5) * aspectVec;
