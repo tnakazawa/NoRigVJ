@@ -1,6 +1,7 @@
 import { AudioAnalyzer, type AudioLevels } from "./audio";
 import { startCrossfade } from "./crossfade";
 import { createLayer, disposeLayer, renderLayer, resizeLayer, type Layer } from "./layer";
+import { createPaletteDropdown, type PaletteDropdown } from "./palette-dropdown";
 import { DEFAULT_PALETTE, PALETTE_PRESETS } from "./palettes";
 import { deletePreset, loadPresets, savePreset } from "./presets";
 import { sceneNames, sceneSupportsPalette, type Palette } from "./scenes";
@@ -85,7 +86,7 @@ interface DisplayEntry {
   currentPreviewWrap: HTMLElement;
   pendingPreviewWrap: HTMLElement;
   selectEl: HTMLSelectElement;
-  paletteSelectEl: HTMLSelectElement;
+  paletteSelectEl: PaletteDropdown;
   mainColorInput: HTMLInputElement;
   subColorInput: HTMLInputElement;
   presetSelectEl: HTMLSelectElement;
@@ -231,22 +232,7 @@ function createDisplayRow(label: number) {
   const paletteRow = document.createElement("div");
   paletteRow.className = "palette-row";
 
-  const paletteSelectEl = document.createElement("select");
-  PALETTE_PRESETS.forEach((preset, i) => {
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = preset.name;
-    // main/subの2色をグラデーションなし(hard stop)で塗り分け、選ばずとも配色が一目でわかるようにする
-    opt.style.background = `linear-gradient(90deg, ${preset.palette.main} 50%, ${preset.palette.sub} 50%)`;
-    // 明るい配色でも暗い配色でも文字が読めるよう、白文字+黒縁取りにする
-    opt.style.color = "#fff";
-    opt.style.textShadow = "0 0 2px #000, 0 0 4px #000";
-    paletteSelectEl.appendChild(opt);
-  });
-  const customOption = document.createElement("option");
-  customOption.value = "custom";
-  customOption.textContent = "Custom";
-  paletteSelectEl.appendChild(customOption);
+  const paletteSelectEl = createPaletteDropdown(PALETTE_PRESETS);
 
   const mainColorInput = document.createElement("input");
   mainColorInput.type = "color";
@@ -255,7 +241,7 @@ function createDisplayRow(label: number) {
   subColorInput.type = "color";
   subColorInput.title = "Sub color";
 
-  paletteRow.append(paletteSelectEl, mainColorInput, subColorInput);
+  paletteRow.append(paletteSelectEl.el, mainColorInput, subColorInput);
 
   const presetRow = document.createElement("div");
   presetRow.className = "preset-row";

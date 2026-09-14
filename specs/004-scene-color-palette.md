@@ -74,4 +74,4 @@
 - UIレイアウト: 投影窓プレビュー行の横幅が狭いと、シーン選択・パレットプリセット選択・カラーピッカー2つが並びきらずはみ出た。`.palette-row` に `flex-wrap: wrap` を付け、狭い時は自動的に折り返すようにした。
 - 本文中の「カスタム」表記は要件定義当時の日本語表記。UIは後日英語化されており、実際のラベルは「Custom」([control.ts](../src/control.ts) 参照)。
 - 実機Chrome(開発サーバー、`window.open` を一時的にスタブ化してこの環境の制約を回避)で、プリセット切替・カラーピッカー変更・Bar Spectrum選択時のパレットUI無効化・Feedback Loopへの反映を確認済み。
-- 本文中の「プリセット案」5色は要件定義当時のもの。後日 [src/palettes.ts](../src/palettes.ts) の `PALETTE_PRESETS` は32色に拡張され、プリセット選択の `<option>` に `style.background: linear-gradient(90deg, main 50%, sub 50%)`(hard stopで2色に塗り分け)を設定することで、選択せずともドロップダウン上で配色を確認できるようにした([control.ts](../src/control.ts) 参照)。
+- 本文中の「プリセット案」5色は要件定義当時のもの。後日 [src/palettes.ts](../src/palettes.ts) の `PALETTE_PRESETS` は32色に拡張された。プリセット選択も、当初はネイティブ `<select>` の `<option>` に `background: linear-gradient(...)` を設定して配色を見せようとしたが、実機Chromeで実際にドロップダウンを開くとOSネイティブのポップアップメニューとして描画され背景が反映されないことが判明(`size` 属性でインライン展開してテストした際は反映されて見えたため、これに気づくのが遅れた)。最終的に [src/palette-dropdown.ts](../src/palette-dropdown.ts) の自作ドロップダウンに置き換え、各項目の左にmain/subの小さな色見本を2つ並べる形にした(テキストを配色で塗ると読みにくくなる配色があったため、全面着色はやめた)。
