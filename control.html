@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -196,25 +196,25 @@
     <div id="app">
       <div id="main-area">
         <div id="displays-list">
-          <div id="displays-empty">投影窓がありません。「投影窓を追加」から開始してください。</div>
+          <div id="displays-empty">No displays yet. Click "Add Display" to start.</div>
         </div>
       </div>
       <div id="panel">
         <h1>NoRigVJ Control</h1>
         <section>
-          <strong>強度: <span id="intensity-value">1.0</span></strong>
+          <strong>Intensity: <span id="intensity-value">1.0</span></strong>
           <input type="range" id="intensity" min="0" max="3" step="0.1" value="1" />
         </section>
         <section>
-          <strong>クロスフェード時間: <span id="crossfade-duration-value">1.0</span>秒</strong>
+          <strong>Crossfade duration: <span id="crossfade-duration-value">1.0</span>s</strong>
           <input type="range" id="crossfade-duration" min="0.2" max="5" step="0.1" value="1" />
         </section>
         <section>
-          <button id="mic-toggle">マイク有効化 (Space)</button>
+          <button id="mic-toggle">Enable Mic (Space)</button>
         </section>
         <section>
-          <button id="add-display">投影窓を追加</button>
-          <div id="status">投影窓: 0枚接続中</div>
+          <button id="add-display">Add Display</button>
+          <div id="status">Displays: 0 connected</div>
         </section>
       </div>
     </div>

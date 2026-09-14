@@ -111,7 +111,7 @@ function populatePresetSelect(selectEl: HTMLSelectElement) {
 
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = presets.length === 0 ? "(プリセットなし)" : "プリセットを選択";
+  placeholder.textContent = presets.length === 0 ? "(No presets)" : "Select preset";
   selectEl.appendChild(placeholder);
 
   presets.forEach((preset) => {
@@ -143,7 +143,7 @@ function createDisplayRow(label: number) {
   currentSlot.className = "preview-slot";
   const currentLabel = document.createElement("div");
   currentLabel.className = "preview-slot-label";
-  currentLabel.textContent = "現在";
+  currentLabel.textContent = "Current";
   const currentPreviewWrap = document.createElement("div");
   currentPreviewWrap.className = "display-preview current-preview";
   currentSlot.append(currentLabel, currentPreviewWrap);
@@ -152,7 +152,7 @@ function createDisplayRow(label: number) {
   pendingSlot.className = "preview-slot";
   const pendingLabel = document.createElement("div");
   pendingLabel.className = "preview-slot-label";
-  pendingLabel.textContent = "次へ";
+  pendingLabel.textContent = "Next";
   const pendingPreviewWrap = document.createElement("div");
   pendingPreviewWrap.className = "display-preview pending-preview";
   pendingSlot.append(pendingLabel, pendingPreviewWrap);
@@ -164,7 +164,7 @@ function createDisplayRow(label: number) {
 
   const labelEl = document.createElement("div");
   labelEl.className = "display-row-label";
-  labelEl.textContent = `投影窓 ${label}`;
+  labelEl.textContent = `Display ${label}`;
 
   const selectEl = document.createElement("select");
   sceneNames.forEach((name, i) => {
@@ -186,34 +186,34 @@ function createDisplayRow(label: number) {
   });
   const customOption = document.createElement("option");
   customOption.value = "custom";
-  customOption.textContent = "カスタム";
+  customOption.textContent = "Custom";
   paletteSelectEl.appendChild(customOption);
 
   const mainColorInput = document.createElement("input");
   mainColorInput.type = "color";
-  mainColorInput.title = "メインカラー";
+  mainColorInput.title = "Main color";
   const subColorInput = document.createElement("input");
   subColorInput.type = "color";
-  subColorInput.title = "サブカラー";
+  subColorInput.title = "Sub color";
 
   paletteRow.append(paletteSelectEl, mainColorInput, subColorInput);
 
   const presetRow = document.createElement("div");
   presetRow.className = "preset-row";
   const presetSaveBtn = document.createElement("button");
-  presetSaveBtn.textContent = "プリセット保存";
+  presetSaveBtn.textContent = "Save Preset";
   const presetSelectEl = document.createElement("select");
   const presetDeleteBtn = document.createElement("button");
-  presetDeleteBtn.textContent = "削除";
+  presetDeleteBtn.textContent = "Delete";
   presetRow.append(presetSaveBtn, presetSelectEl, presetDeleteBtn);
 
   const crossfadeBtn = document.createElement("button");
   crossfadeBtn.className = "crossfade-btn";
-  crossfadeBtn.textContent = "クロスフェード実行";
+  crossfadeBtn.textContent = "Crossfade";
 
   const closeBtn = document.createElement("button");
   closeBtn.className = "close-btn";
-  closeBtn.textContent = "閉じる";
+  closeBtn.textContent = "Close";
 
   controls.append(labelEl, selectEl, paletteRow, presetRow, crossfadeBtn, closeBtn);
   rowEl.append(previewGroup, controls);
@@ -279,7 +279,7 @@ function addDisplay() {
 
   const opened = window.open(`/display.html?windowId=${id}`, id, "width=1280,height=720");
   if (!opened) {
-    console.error("投影窓のオープンに失敗しました(ポップアップブロックされている可能性があります)");
+    console.error("Failed to open display window (popup may have been blocked)");
     return;
   }
 
@@ -357,9 +357,11 @@ function addDisplay() {
   });
 
   presetSaveBtn.addEventListener("click", () => {
-    const name = prompt("プリセット名を入力してください");
-    if (!name) return;
     const sceneName = sceneNames[entry.pendingLayer.sceneIndex];
+    const { main, sub } = entry.pendingLayer.palette;
+    const defaultName = `${sceneName}-${main}-${sub}`;
+    const name = prompt("Preset name", defaultName);
+    if (!name) return;
     savePreset(name, sceneName, entry.pendingLayer.palette);
     refreshAllPresetSelects();
   });
@@ -371,7 +373,7 @@ function addDisplay() {
     if (!preset) return;
     const sceneIdx = sceneNames.indexOf(preset.sceneName);
     if (sceneIdx === -1) {
-      console.warn(`プリセット "${preset.name}" が参照するシーン "${preset.sceneName}" が見つかりません`);
+      console.warn(`Preset "${preset.name}" references unknown scene "${preset.sceneName}"`);
       return;
     }
     selectEl.value = String(sceneIdx);
@@ -438,9 +440,9 @@ async function enableMic() {
   if (audio.isEnabled()) return;
   try {
     await audio.start();
-    micToggleBtn.textContent = "マイク: ON";
+    micToggleBtn.textContent = "Mic: ON";
   } catch (err) {
-    console.error("マイクの取得に失敗しました", err);
+    console.error("Failed to access microphone", err);
   }
 }
 
@@ -534,7 +536,7 @@ function tick() {
   };
   channel.postMessage(state);
 
-  statusEl.textContent = `投影窓: ${displays.size}枚接続中`;
+  statusEl.textContent = `Displays: ${displays.size} connected`;
 }
 
 // プレビュー描画は見た目の滑らかさ優先でrAFのまま。操作窓が隠れて一時的に

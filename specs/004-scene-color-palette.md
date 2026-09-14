@@ -72,4 +72,5 @@
 - Pulse Rings: 5本のリングを `i / (ringCount - 1)` の比率でメイン→サブへ線形補間。Noise Field: パーティクルごとに `sin(i * 7.3)` という時間に依存しない疑似乱数でメイン/サブ間を補間し、色が時間で変わらずちらつかないようにした。Feedback Loop: 発光の種火の色を `mix(uMainColor, uSubColor, 0.5 + 0.5*sin(uTime*0.5))` とし、「色相が回り続ける」表現から「2色間をゆっくり往復する」表現に変更した。
 - `VJState` に `paletteByWindow: Record<windowId, Palette>` を追加し、`sceneIndexByWindow` と同様にBroadcastChannelで配信。`display.ts` は `paletteByWindow[windowId] ?? DEFAULT_PALETTE` で参照する。
 - UIレイアウト: 投影窓プレビュー行の横幅が狭いと、シーン選択・パレットプリセット選択・カラーピッカー2つが並びきらずはみ出た。`.palette-row` に `flex-wrap: wrap` を付け、狭い時は自動的に折り返すようにした。
+- 本文中の「カスタム」表記は要件定義当時の日本語表記。UIは後日英語化されており、実際のラベルは「Custom」([control.ts](../src/control.ts) 参照)。
 - 実機Chrome(開発サーバー、`window.open` を一時的にスタブ化してこの環境の制約を回避)で、プリセット切替・カラーピッカー変更・Bar Spectrum選択時のパレットUI無効化・Feedback Loopへの反映を確認済み。

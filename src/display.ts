@@ -45,7 +45,7 @@ channel.onmessage = (e: MessageEvent<VJState>) => {
     lastCrossfadeId = instruction.id;
     const toSceneIndex = sceneNames.indexOf(instruction.toSceneName);
     if (toSceneIndex === -1) {
-      console.warn(`クロスフェード先のシーン "${instruction.toSceneName}" が見つかりません`);
+      console.warn(`Crossfade target scene "${instruction.toSceneName}" not found`);
       return;
     }
     const toLayer = createLayer(toSceneIndex, instruction.toPalette);
