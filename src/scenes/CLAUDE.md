@@ -10,6 +10,7 @@
 - [_shared/color-utils.ts](_shared/color-utils.ts) — `hsl()`(非パレット対応シーン用)、`hexToRgb()` / `lerpColor()`(パレット対応シーン用)などの色ヘルパー。
 - [index.ts](index.ts) — `import.meta.glob` で `src/scenes/*.ts`(`_shared/` を除く)を自動収集し、`sceneFactories: SceneFactory[]` をexportする。
 - 実装済みシーン: `01-pulse-rings.ts` / `03-noise-field.ts`(Canvas 2D、パレット対応) / `02-bar-spectrum.ts`(Canvas 2D、パレット非対応・時間経過で色相が回る) / `04-feedback-loop.ts`(WebGL、three.jsによるRenderTargetのピンポンでフィードバックループを表現、パレット対応)。カラーパレットの背景は [../../specs/004-scene-color-palette.md](../../specs/004-scene-color-palette.md) 参照。
+- 手動トリガー(Trigger 1/2/3、[../../specs/007-manual-trigger.md](../../specs/007-manual-trigger.md)参照)は `ctx.triggers`(固定長3、各0-1で発生時1→指数減衰)を使う。対応する演出があるシーンは `triggerEffectNames`(固定長3、対応インデックスに演出名・非対応は`undefined`)を持つ。現状 `01-pulse-rings.ts`(Ring Burst / Color Flip / Radius Kick)と `03-noise-field.ts`(Radial Push / Freeze / Color Flash)の2シーンが3種類ずつ対応。新規シーンで対応する場合、`triggerEffectNames` ごと省略してよい(未対応シーンでは操作UI側のボタンが自動的に無効化される)。
 
 ## シーン追加の手順
 

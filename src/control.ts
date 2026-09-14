@@ -4,7 +4,7 @@ import { createLayer, disposeLayer, renderLayer, resizeLayer, type Layer } from 
 import { DEFAULT_PALETTE, PALETTE_PRESETS } from "./palettes";
 import { deletePreset, loadPresets, savePreset } from "./presets";
 import { sceneNames, type Palette } from "./scenes";
-import { CHANNEL_NAME, type CrossfadeInstruction, type VJState } from "./shared";
+import { CHANNEL_NAME, type CrossfadeInstruction, type TriggerInstruction, type VJState } from "./shared";
 
 const displaysListEl = document.getElementById("displays-list")!;
 const displaysEmptyEl = document.getElementById("displays-empty")!;
@@ -15,12 +15,57 @@ const crossfadeDurationValueEl = document.getElementById("crossfade-duration-val
 const micToggleBtn = document.getElementById("mic-toggle") as HTMLButtonElement;
 const addDisplayBtn = document.getElementById("add-display") as HTMLButtonElement;
 const statusEl = document.getElementById("status")!;
+const triggerButtons = [
+  document.getElementById("trigger-1") as HTMLButtonElement,
+  document.getElementById("trigger-2") as HTMLButtonElement,
+  document.getElementById("trigger-3") as HTMLButtonElement,
+];
+
+/** Trigger 1/2/3のbeatPulse相当の減衰の速さ(この時定数(秒)でe^-1倍になる) */
+const TRIGGER_PULSE_DECAY_TAU = 0.2;
 
 let startTime = performance.now();
 let manualIntensity = 1; // ← / → キー、またはスライダーで調整
 let crossfadeDurationMs = 1000;
 let latestAudio: AudioLevels = { volume: 0, bass: 0, mid: 0, treble: 0 };
 let latestTime = 0;
+let latestTriggers: [number, number, number] = [0, 0, 0];
+
+// 各トリガーが最後に発火した時刻(performance.now()、未発火は0)。VJStateへは
+// 「直近に発火した1件」だけをidつきで送り、投影窓側はidの変化で新規発火を判定する
+// (クロスフェードのCrossfadeInstructionと同じ方式)。
+const triggerFiredAt: [number, number, number] = [0, 0, 0];
+let lastTrigger: TriggerInstruction | null = null;
+
+/** Trigger 1/2/3ボタンを押した(またはキーを押した)ときに呼ぶ。 */
+function fireTrigger(index: 0 | 1 | 2) {
+  triggerFiredAt[index] = performance.now();
+  lastTrigger = { id: crypto.randomUUID(), index };
+}
+
+/** @returns 現在時刻におけるTrigger 1/2/3それぞれのbeatPulse相当の値(発火時1→指数減衰) */
+function computeTriggers(now: number): [number, number, number] {
+  return triggerFiredAt.map((firedAt) => {
+    if (firedAt === 0) return 0;
+    const elapsedSec = (now - firedAt) / 1000;
+    return Math.exp(-elapsedSec / TRIGGER_PULSE_DECAY_TAU);
+  }) as [number, number, number];
+}
+
+/** 表示中の投影窓のいずれかがそのトリガー番号に対応する演出を持っていれば、ボタンを有効化する。 */
+function updateTriggerButtonStates() {
+  const supported = [false, false, false];
+  displays.forEach((entry) => {
+    const names = entry.currentLayer.scene.triggerEffectNames;
+    if (!names) return;
+    names.forEach((name, i) => {
+      if (name) supported[i] = true;
+    });
+  });
+  triggerButtons.forEach((btn, i) => {
+    btn.disabled = !supported[i];
+  });
+}
 
 const audio = new AudioAnalyzer();
 const channel = new BroadcastChannel(CHANNEL_NAME);
@@ -461,7 +506,15 @@ micToggleBtn.addEventListener("click", () => {
   enableMic();
 });
 
+triggerButtons.forEach((btn, i) => {
+  btn.addEventListener("click", () => fireTrigger(i as 0 | 1 | 2));
+});
+
 window.addEventListener("keydown", (e) => {
+  // select等にフォーカスがある間は、そちらの標準的な入力操作を優先する
+  const target = e.target as HTMLElement | null;
+  const isFormField = target instanceof HTMLInputElement || target instanceof HTMLSelectElement;
+
   if (e.key === "ArrowRight") {
     setIntensity(manualIntensity + 0.1);
   } else if (e.key === "ArrowLeft") {
@@ -469,6 +522,8 @@ window.addEventListener("keydown", (e) => {
   } else if (e.key === " ") {
     e.preventDefault();
     enableMic();
+  } else if (!isFormField && (e.key === "1" || e.key === "2" || e.key === "3")) {
+    fireTrigger((Number(e.key) - 1) as 0 | 1 | 2);
   }
 });
 
@@ -502,6 +557,7 @@ function tick() {
 
   latestTime = time;
   latestAudio = scaledLevels;
+  latestTriggers = computeTriggers(performance.now());
 
   // 投影窓の生存確認。ユーザーがウィンドウ自体を閉じた場合も一覧から自動的に除去する。
   for (const [id, entry] of [...displays]) {
@@ -509,6 +565,8 @@ function tick() {
       removeDisplay(id);
     }
   }
+
+  updateTriggerButtonStates();
 
   const sceneIndexByWindow: Record<string, number> = {};
   const paletteByWindow: Record<string, Palette> = {};
@@ -530,6 +588,7 @@ function tick() {
     sceneIndexByWindow,
     paletteByWindow,
     crossfadeByWindow,
+    trigger: lastTrigger,
     intensity: manualIntensity,
     audio: scaledLevels,
     time,
@@ -545,16 +604,16 @@ function renderPreviews() {
   displays.forEach((entry) => {
     const currentWidth = entry.currentPreviewWrap.clientWidth || 1;
     const currentHeight = entry.currentPreviewWrap.clientHeight || 1;
-    renderLayer(entry.currentLayer, currentWidth, currentHeight, latestTime, latestAudio);
+    renderLayer(entry.currentLayer, currentWidth, currentHeight, latestTime, latestAudio, latestTriggers);
 
     // クロスフェード中は pendingLayer が currentPreviewWrap 側に重ねて表示されているため
     // そちらのサイズでレンダリングし、そうでなければ予約プレビュー欄自身のサイズを使う。
     if (entry.crossfadingInstructionId) {
-      renderLayer(entry.pendingLayer, currentWidth, currentHeight, latestTime, latestAudio);
+      renderLayer(entry.pendingLayer, currentWidth, currentHeight, latestTime, latestAudio, latestTriggers);
     } else {
       const pendingWidth = entry.pendingPreviewWrap.clientWidth || 1;
       const pendingHeight = entry.pendingPreviewWrap.clientHeight || 1;
-      renderLayer(entry.pendingLayer, pendingWidth, pendingHeight, latestTime, latestAudio);
+      renderLayer(entry.pendingLayer, pendingWidth, pendingHeight, latestTime, latestAudio, latestTriggers);
     }
   });
 

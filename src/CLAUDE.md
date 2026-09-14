@@ -19,6 +19,14 @@
 - クロスフェード実行時、`crossfadeByWindow[windowId]` に `{ id, toSceneName, toPalette, durationMs }` をセットして配信する。`id` は発生ごとに一意の値で、投影窓側はこの `id` が前回と変わったときだけ新しいクロスフェードを開始する(同じ内容を毎tick送り続けても二重に開始しないようにするため)。
 - 操作UIの各投影窓行は `currentLayer`(現在)と `pendingLayer`(次への予約)を常時両方保持・レンダリングし、「Current」「Next」のプレビューを並べて表示する。`pendingLayer` はクロスフェード実行時にそのまま遷移先レイヤーとして使われ(予約プレビュー用とクロスフェードのtoレイヤーを同一インスタンスに統合)、実行と同時に同じ内容の新しい `pendingLayer` が用意される(「Next」欄が空白にならないようにするため)。この設計により、操作UI側は常時2レイヤー分のレンダリングコストがかかる(投影窓側は変わらず、実際のクロスフェード中だけ2レイヤーになる)。
 
+## 手動トリガー演出
+
+[specs/007-manual-trigger.md](../specs/007-manual-trigger.md)参照。以前試みたBPM自動検出は精度不足で撤回し、代わりにVJ本人がボタン/キーで発火するワンショット演出にした。
+
+- `SceneContextBase.triggers: [number, number, number]` がTrigger 1/2/3それぞれの発生状況(発生時1→指数減衰)を全シーンの `render()` に渡す。`Scene2D`/`SceneWebGL` の `triggerEffectNames?: TriggerEffectNames` に、対応する演出があるインデックスだけ名前を入れる(未対応は `undefined`)。シーンは0〜3個の任意個数だけ対応してよい。現時点の対応シーンはPulse Rings・Noise Fieldの2つのみ。
+- `VJState.trigger: { id, index } | null` で伝搬する。`id` はクロスフェードの `CrossfadeInstruction.id` と同じ考え方で、発生ごとに一意にし、投影窓側はこの `id` が変わったときだけ新規発生とみなす。実際の減衰値(`triggers` の3要素)は操作UI側・投影窓側それぞれが自分の内部状態(各トリガーを最後に検知した時刻)から計算する(`computeTriggers()`、control.ts/display.ts双方に同じ実装を持つ)。
+- パネルの「Trigger 1/2/3」ボタンは、表示中の投影窓のいずれかがそのトリガーに対応していなければ無効化する(`updateTriggerButtonStates()`)。
+
 ## 主要ファイル
 
 - [audio.ts](audio.ts) — `AudioAnalyzer` クラス。`fftSize: 512`、`smoothingTimeConstant: 0.8` で周波数データを取得し、周波数ビンを低域0〜6%(〜1.3kHz)/中域6〜25%(〜1.3〜5.5kHz)/高域25〜100%(〜5.5〜22kHz)に分割して `volume/bass/mid/treble`(各0-1)を算出する。境界は音楽・声のエネルギーが低〜中域に集中する実態に合わせて調整済み(高域寄りに広く取りすぎると `treble` がほぼ反応しなくなる)。
@@ -45,5 +53,6 @@ UI表記は英語。
 | 投影窓ごとのパレットUI | プリセット選択 / メイン・サブのカラーピッカーで次に切り替える配色を予約([../specs/004-scene-color-palette.md](../specs/004-scene-color-palette.md)参照) |
 | 投影窓ごとのシーンプリセットUI(「Save Preset」/選択/「Delete」) | 現在のシーン名+パレットを名前付きで保存/削除。呼び出すと予約に反映される。`localStorage` に永続化され、全投影窓行で共有される([../specs/005-scene-presets.md](../specs/005-scene-presets.md)参照) |
 | 投影窓ごとの「Crossfade」ボタン | 予約内容が現在の表示と異なる間のみ有効。押すと現在の表示から予約内容へクロスフェードする([../specs/006-scene-crossfade.md](../specs/006-scene-crossfade.md)参照) |
+| `1`/`2`/`3` キー、「Trigger 1/2/3」ボタン | 手動トリガー演出を発火(全投影窓共通)。対応するシーンが1つも表示されていなければボタンは無効([../specs/007-manual-trigger.md](../specs/007-manual-trigger.md)参照) |
 
 数字キーによるシーン切替は廃止済み(投影窓ごとにシーンが異なりうるため、「どの窓に効くか」が曖昧になるのを避けている)。投影窓側では `F` キーでフルスクリーン切り替え。

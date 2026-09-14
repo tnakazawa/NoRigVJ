@@ -56,6 +56,7 @@ export function createLayer(sceneIndex: number, palette: Palette): Layer {
       time: 0,
       audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
       palette,
+      triggers: [0, 0, 0],
     });
   }
 
@@ -85,11 +86,18 @@ export function resizeLayer(layer: Layer, width: number, height: number) {
 }
 
 /** レイヤーのシーンを1フレーム分描画する。 */
-export function renderLayer(layer: Layer, width: number, height: number, time: number, audio: AudioLevels) {
+export function renderLayer(
+  layer: Layer,
+  width: number,
+  height: number,
+  time: number,
+  audio: AudioLevels,
+  triggers: [number, number, number],
+) {
   if (layer.scene.kind === "2d") {
-    layer.scene.render({ ctx: layer.ctx2d, width, height, time, audio, palette: layer.palette });
+    layer.scene.render({ ctx: layer.ctx2d, width, height, time, audio, palette: layer.palette, triggers });
   } else {
-    layer.scene.render({ renderer: layer.renderer, width, height, time, audio, palette: layer.palette });
+    layer.scene.render({ renderer: layer.renderer, width, height, time, audio, palette: layer.palette, triggers });
   }
 }
 
