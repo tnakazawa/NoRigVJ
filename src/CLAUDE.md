@@ -46,13 +46,15 @@ UI表記は英語。
 
 | キー / UI | 動作 |
 |---|---|
-| Space / 「Enable Mic」/「Disable Mic」ボタン | マイク入力の有効・無効を切り替える(全投影窓共通)。無効化すると `AudioAnalyzer.stop()` でストリーム・`AudioContext` を解放する |
+| `M` キー / 「Enable Mic」/「Disable Mic」ボタン | マイク入力の有効・無効を切り替える(全投影窓共通)。無効化すると `AudioAnalyzer.stop()` でストリーム・`AudioContext` を解放する |
 | ← / → / 「Intensity」スライダー | エフェクトの強度を調整(0〜9、全投影窓共通) |
 | 「Crossfade duration」スライダー | シーン切替の遷移時間を調整(全投影窓共通) |
 | 投影窓ごとのセレクトボックス | 次に切り替えるシーンを予約(即座には反映されない) |
 | 投影窓ごとのパレットUI | プリセット選択 / メイン・サブのカラーピッカーで次に切り替える配色を予約([../specs/004-scene-color-palette.md](../specs/004-scene-color-palette.md)参照) |
 | 投影窓ごとのシーンプリセットUI(「Save Preset」/選択/「Delete」) | 現在のシーン名+パレットを名前付きで保存/削除。呼び出すと予約に反映される。`localStorage` に永続化され、全投影窓行で共有される([../specs/005-scene-presets.md](../specs/005-scene-presets.md)参照) |
 | 投影窓ごとの「Crossfade」ボタン | 予約内容が現在の表示と異なる間のみ有効。押すと現在の表示から予約内容へクロスフェードする([../specs/006-scene-crossfade.md](../specs/006-scene-crossfade.md)参照) |
-| `1`/`2`/`3` キー、「Trigger 1/2/3」ボタン | 手動トリガー演出を発火(全投影窓共通)。対応するシーンが1つも表示されていなければボタンは無効([../specs/007-manual-trigger.md](../specs/007-manual-trigger.md)参照) |
+| `Space` キー、「Trigger 1」ボタン | Trigger 1を発火(全投影窓共通)。対応するシーンが1つも表示されていなければボタンは無効([../specs/007-manual-trigger.md](../specs/007-manual-trigger.md)参照) |
+| Cmd右(`MetaRight`)/Ctrl右(`ControlRight`)、「Trigger 2」ボタン | Trigger 2を発火 |
+| Cmd左(`MetaLeft`)/Ctrl左(`ControlLeft`)、「Trigger 3」ボタン | Trigger 3を発火 |
 
-数字キーによるシーン切替は廃止済み(投影窓ごとにシーンが異なりうるため、「どの窓に効くか」が曖昧になるのを避けている)。投影窓側では `F` キーでフルスクリーン切り替え。
+数字キー(1/2/3)によるシーン切替・トリガー発火は廃止済み(投影窓ごとにシーンが異なりうる中でシーン切替キーとして使うと「どの窓に効くか」が曖昧になるため、そもそもシーン切替用途では使っていない。トリガー用途としても、後日 Space/Cmd/Ctrl 割当に置き換えられた)。投影窓側では `F` キーでフルスクリーン切り替え。

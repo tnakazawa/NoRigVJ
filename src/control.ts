@@ -492,12 +492,12 @@ function setCrossfadeDuration(seconds: number) {
 async function toggleMic() {
   if (audio.isEnabled()) {
     audio.stop();
-    micToggleBtn.textContent = "Enable Mic (Space)";
+    micToggleBtn.textContent = "Enable Mic (M)";
     return;
   }
   try {
     await audio.start();
-    micToggleBtn.textContent = "Disable Mic (Space)";
+    micToggleBtn.textContent = "Disable Mic (M)";
   } catch (err) {
     console.error("Failed to access microphone", err);
   }
@@ -532,10 +532,20 @@ window.addEventListener("keydown", (e) => {
   } else if (e.key === "ArrowLeft") {
     setIntensity(manualIntensity - 0.1);
   } else if (e.key === " ") {
+    // Trigger 1。button要素がフォーカスされていると標準動作でクリックされてしまうため、
+    // どこにフォーカスがあっても常にpreventDefaultする(マイクトグルだった頃からの挙動を踏襲)
     e.preventDefault();
+    fireTrigger(0);
+  } else if (!isFormField && (e.key === "m" || e.key === "M")) {
     toggleMic();
-  } else if (!isFormField && (e.key === "1" || e.key === "2" || e.key === "3")) {
-    fireTrigger((Number(e.key) - 1) as 0 | 1 | 2);
+  } else if (e.code === "MetaRight" || e.code === "ControlRight") {
+    // Trigger 2。MacはCmd右(MetaRight)、WindowsはWinキーがOSに予約されがちなためCtrl右(ControlRight)を使う
+    e.preventDefault();
+    fireTrigger(1);
+  } else if (e.code === "MetaLeft" || e.code === "ControlLeft") {
+    // Trigger 3。Mac=Cmd左(MetaLeft)、Windows=Ctrl左(ControlLeft)
+    e.preventDefault();
+    fireTrigger(2);
   }
 });
 
