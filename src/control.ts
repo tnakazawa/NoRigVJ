@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { AudioAnalyzer, type AudioLevels } from "./audio";
 import { DEFAULT_PALETTE, PALETTE_PRESETS } from "./palettes";
+import { deletePreset, loadPresets, savePreset } from "./presets";
 import { sceneFactories, type Palette, type Scene } from "./scenes";
 import { CHANNEL_NAME, type VJState } from "./shared";
 
@@ -34,6 +35,7 @@ interface DisplayEntry {
   paletteSelectEl: HTMLSelectElement;
   mainColorInput: HTMLInputElement;
   subColorInput: HTMLInputElement;
+  presetSelectEl: HTMLSelectElement;
 }
 
 // 投影窓ごとに独立したシーンインスタンス・プレビュー用canvas/renderer・パレットを保持する。
@@ -56,6 +58,33 @@ function updateDisplayPaletteUI(entry: DisplayEntry) {
   entry.paletteSelectEl.disabled = !supportsPalette;
   entry.mainColorInput.disabled = !supportsPalette;
   entry.subColorInput.disabled = !supportsPalette;
+}
+
+function populatePresetSelect(selectEl: HTMLSelectElement) {
+  const presets = loadPresets();
+  const prevValue = selectEl.value;
+  selectEl.innerHTML = "";
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = presets.length === 0 ? "(プリセットなし)" : "プリセットを選択";
+  selectEl.appendChild(placeholder);
+
+  presets.forEach((preset) => {
+    const opt = document.createElement("option");
+    opt.value = preset.id;
+    opt.textContent = preset.name;
+    selectEl.appendChild(opt);
+  });
+
+  if ([...selectEl.options].some((o) => o.value === prevValue)) {
+    selectEl.value = prevValue;
+  }
+}
+
+// プリセットの保存・削除は他の投影窓行にも影響するため、全行のプリセット一覧を同期し直す。
+function refreshAllPresetSelects() {
+  displays.forEach((entry) => populatePresetSelect(entry.presetSelectEl));
 }
 
 function resizeDisplayEntry(entry: DisplayEntry) {
@@ -108,14 +137,35 @@ function createDisplayRow(label: number) {
 
   paletteRow.append(paletteSelectEl, mainColorInput, subColorInput);
 
+  const presetRow = document.createElement("div");
+  presetRow.className = "preset-row";
+  const presetSaveBtn = document.createElement("button");
+  presetSaveBtn.textContent = "プリセット保存";
+  const presetSelectEl = document.createElement("select");
+  const presetDeleteBtn = document.createElement("button");
+  presetDeleteBtn.textContent = "削除";
+  presetRow.append(presetSaveBtn, presetSelectEl, presetDeleteBtn);
+
   const closeBtn = document.createElement("button");
   closeBtn.className = "close-btn";
   closeBtn.textContent = "閉じる";
 
-  controls.append(labelEl, selectEl, paletteRow, closeBtn);
+  controls.append(labelEl, selectEl, paletteRow, presetRow, closeBtn);
   rowEl.append(previewWrap, controls);
 
-  return { rowEl, previewCanvas, previewGlCanvas, selectEl, paletteSelectEl, mainColorInput, subColorInput, closeBtn };
+  return {
+    rowEl,
+    previewCanvas,
+    previewGlCanvas,
+    selectEl,
+    paletteSelectEl,
+    mainColorInput,
+    subColorInput,
+    presetSaveBtn,
+    presetSelectEl,
+    presetDeleteBtn,
+    closeBtn,
+  };
 }
 
 function addDisplay() {
@@ -128,8 +178,19 @@ function addDisplay() {
     return;
   }
 
-  const { rowEl, previewCanvas, previewGlCanvas, selectEl, paletteSelectEl, mainColorInput, subColorInput, closeBtn } =
-    createDisplayRow(displayCounter);
+  const {
+    rowEl,
+    previewCanvas,
+    previewGlCanvas,
+    selectEl,
+    paletteSelectEl,
+    mainColorInput,
+    subColorInput,
+    presetSaveBtn,
+    presetSelectEl,
+    presetDeleteBtn,
+    closeBtn,
+  } = createDisplayRow(displayCounter);
   displaysListEl.appendChild(rowEl);
 
   const previewCtx = previewCanvas.getContext("2d")!;
@@ -172,9 +233,11 @@ function addDisplay() {
     paletteSelectEl,
     mainColorInput,
     subColorInput,
+    presetSelectEl,
   };
 
   paletteSelectEl.value = "0";
+  populatePresetSelect(presetSelectEl);
   mainColorInput.value = entry.palette.main;
   subColorInput.value = entry.palette.sub;
 
@@ -203,6 +266,43 @@ function addDisplay() {
   subColorInput.addEventListener("input", () => {
     entry.palette = { ...entry.palette, sub: subColorInput.value };
     paletteSelectEl.value = "custom";
+  });
+
+  presetSaveBtn.addEventListener("click", () => {
+    const name = prompt("プリセット名を入力してください");
+    if (!name) return;
+    const sceneName = entry.scenes[entry.sceneIndex].name;
+    savePreset(name, sceneName, entry.palette);
+    refreshAllPresetSelects();
+  });
+
+  presetSelectEl.addEventListener("change", () => {
+    const id = presetSelectEl.value;
+    if (!id) return;
+    const preset = loadPresets().find((p) => p.id === id);
+    if (!preset) return;
+    const sceneIdx = entry.scenes.findIndex((s) => s.name === preset.sceneName);
+    if (sceneIdx === -1) {
+      console.warn(`プリセット "${preset.name}" が参照するシーン "${preset.sceneName}" が見つかりません`);
+      return;
+    }
+    entry.sceneIndex = sceneIdx;
+    entry.palette = { ...preset.palette };
+    selectEl.value = String(sceneIdx);
+    mainColorInput.value = preset.palette.main;
+    subColorInput.value = preset.palette.sub;
+    // プリセットのパレットはPALETTE_PRESETSのいずれかと一致するとは限らないため、カスタム扱いにする
+    paletteSelectEl.value = "custom";
+    updateDisplayCanvasVisibility(entry);
+    updateDisplayPaletteUI(entry);
+    resizeDisplayEntry(entry);
+  });
+
+  presetDeleteBtn.addEventListener("click", () => {
+    const id = presetSelectEl.value;
+    if (!id) return;
+    deletePreset(id);
+    refreshAllPresetSelects();
   });
 
   closeBtn.addEventListener("click", () => {
