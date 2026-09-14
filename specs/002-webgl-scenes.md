@@ -96,3 +96,4 @@
 - **ハマった点**: 2D用/WebGL用canvasを重ねて `display: none` で切り替える構成にしたところ、シーン切替直後にWebGL描画が真っ黒になった。`display: none` の要素は `clientWidth`/`clientHeight` が0になり、`renderer.setSize()` に0が渡っていたのが原因。`setSceneIndex()` 内で表示切替の直後に `resize()` を呼び直すことで解消した。
 - **ハマった点**: フィードバックループの最初の実装では、前フレーム減衰(0.94)とシード強度(最大1.0)のバランスが悪く、数秒で中心が白飛びした。定常状態の収束値は `seed / (1 - decay)` になるため、`decay=0.9` にしつつシード強度を `0.01 + volume*0.05`(最大0.06)程度まで下げ、収束値が1.0を超えないよう調整した。また強度スライダー(0〜3倍)で音声値が1.0を超えることがあるため、シェーダー内で `clamp(uVolume/uBass/uTreble, 0.0, 1.0)` してから使うようにした。
 - 実機Chrome(開発サーバー上の2タブ)でシーン自動収集・Feedback Loop切替・強度調整・BroadcastChannel同期を確認済み。Fullscreen APIは検証環境の制約で未確認([specs/001-multi-window-projection.md](001-multi-window-projection.md)と同様)。
+- 本文中の「Canvas 2D / WebGLの併存構成」は当時の設計。[specs/009-webgl-only-scenes.md](009-webgl-only-scenes.md)で、残っていたCanvas 2Dシーン(Pulse Rings / Bar Spectrum / Noise Field)もWebGL化され、Canvas 2D方式(`Scene2D`/`SceneContext2D`型、`Layer`の2D用canvas)は撤去された。現在は全シーンWebGLで統一されている。

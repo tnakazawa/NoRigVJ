@@ -1,14 +1,4 @@
 /**
- * Canvas 2Dの `hsl()` カラー文字列を組み立てる(パレット非対応シーン用)。
- * @param h 色相(0-360、範囲外はラップする)
- * @param s 彩度(0-100)
- * @param l 明度(0-100)
- */
-export function hsl(h: number, s: number, l: number): string {
-  return `hsl(${h % 360}, ${s}%, ${l}%)`;
-}
-
-/**
  * 16進カラーコードを、各成分0-1に正規化したRGB(WebGLのuniform等で使う形)に変換する。
  * @param hex 例: "#ff00ff"
  * @returns `[r, g, b]`(各0-1)

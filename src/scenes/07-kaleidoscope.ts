@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { hexToRgb } from "./_shared/color-utils";
-import type { SceneContextWebGL, SceneFactory, SceneWebGL } from "./_shared/types";
+import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 
 const vertexShader = `
   varying vec2 vUv;
@@ -56,8 +56,7 @@ const createKaleidoscopeScene: SceneFactory = () => {
   let camera: THREE.OrthographicCamera;
   let material: THREE.ShaderMaterial;
 
-  const scene: SceneWebGL = {
-    kind: "webgl",
+  const scene: Scene = {
     name: "Kaleidoscope",
     supportsPalette: true,
     init() {
@@ -79,7 +78,7 @@ const createKaleidoscopeScene: SceneFactory = () => {
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
       renderScene.add(quad);
     },
-    render(ctx: SceneContextWebGL) {
+    render(ctx: SceneContext) {
       material.uniforms.uTime.value = ctx.time;
       material.uniforms.uVolume.value = ctx.audio.volume;
       material.uniforms.uBass.value = ctx.audio.bass;

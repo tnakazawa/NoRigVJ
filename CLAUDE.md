@@ -33,6 +33,6 @@ READMEとCLAUDE.md群で「操作方法」のような事実が重複するこ�
 ## アーキテクチャ概観
 
 - エントリは `control.html`(操作UI)/ `display.html`(投影窓)の2つ([specs/001-multi-window-projection.md](specs/001-multi-window-projection.md)参照)。シーン選択・パレット・プリセットは「予約」してから「クロスフェード実行」で反映する二段階UI([specs/006-scene-crossfade.md](specs/006-scene-crossfade.md)参照)。詳細(状態管理・BroadcastChannel・操作方法)は [src/CLAUDE.md](src/CLAUDE.md) を参照。
-- レンダリングは **Canvas 2D API** と **WebGL(three.js)** の併存構成([specs/002-webgl-scenes.md](specs/002-webgl-scenes.md)参照)。シーンの実装詳細・追加手順は [src/scenes/CLAUDE.md](src/scenes/CLAUDE.md) を参照。
+- レンダリングは全シーン **WebGL(three.js)** で統一している([specs/002-webgl-scenes.md](specs/002-webgl-scenes.md)でWebGL対応を導入し、[specs/009-webgl-only-scenes.md](specs/009-webgl-only-scenes.md)で残っていたCanvas 2Dシーンを置き換えて全廃止した)。シーンの実装詳細・追加手順は [src/scenes/CLAUDE.md](src/scenes/CLAUDE.md) を参照。
 - **Web Audio API** で音声解析(`getUserMedia` でマイク入力、[src/audio.ts](src/audio.ts))。
 - フレームワーク・UIライブラリなし。依存は `vite` / `typescript` / `three` のみ。

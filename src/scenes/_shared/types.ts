@@ -9,8 +9,8 @@ export interface Palette {
   sub: string;
 }
 
-/** シーンの `render()` に渡される、2D/WebGL共通のコンテキスト。 */
-export interface SceneContextBase {
+/** シーンの `render()` に渡されるレンダリングコンテキスト。全シーンWebGL(three.js)で描画する。 */
+export interface SceneContext {
   width: number;
   height: number;
   /** 経過秒数 */
@@ -22,15 +22,6 @@ export interface SceneContextBase {
    * 指数関数的に減衰する。音声解析結果ではなくUI操作由来のため `AudioLevels` には含めない。
    */
   triggers: [number, number, number];
-}
-
-/** Canvas 2Dシーン向けのレンダリングコンテキスト。 */
-export interface SceneContext2D extends SceneContextBase {
-  ctx: CanvasRenderingContext2D;
-}
-
-/** WebGLシーン向けのレンダリングコンテキスト。 */
-export interface SceneContextWebGL extends SceneContextBase {
   renderer: WebGLRenderer;
 }
 
@@ -42,29 +33,16 @@ export interface SceneContextWebGL extends SceneContextBase {
  */
 export type TriggerEffectNames = [string | undefined, string | undefined, string | undefined];
 
-/** Canvas 2D APIで描画するシーン。 */
-export interface Scene2D {
-  kind: "2d";
+/** WebGL(three.js)で描画するシーン。 */
+export interface Scene {
   name: string;
   /** true の場合、投影窓のパレット設定(メイン/サブ2色)が render() の palette に渡り、UI上でも編集できる */
   supportsPalette: boolean;
   triggerEffectNames?: TriggerEffectNames;
-  render(ctx: SceneContext2D): void;
-}
-
-/** WebGL(three.js)で描画するシーン。 */
-export interface SceneWebGL {
-  kind: "webgl";
-  name: string;
-  supportsPalette: boolean;
-  triggerEffectNames?: TriggerEffectNames;
   /** シェーダーコンパイル・RenderTarget確保など、シーンごとに初回のみ呼ばれる */
-  init?(ctx: SceneContextWebGL): void;
-  render(ctx: SceneContextWebGL): void;
+  init?(ctx: SceneContext): void;
+  render(ctx: SceneContext): void;
 }
-
-/** 描画方式(`kind`)によって2Dシーン/WebGLシーンのいずれかになるシーン。 */
-export type Scene = Scene2D | SceneWebGL;
 
 /** ページ(操作UI/投影窓)ごとに独立したシーンインスタンスを作るための生成関数 */
 export type SceneFactory = () => Scene;

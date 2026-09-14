@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { hexToRgb } from "./_shared/color-utils";
-import type { SceneContextWebGL, SceneFactory, SceneWebGL } from "./_shared/types";
+import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 
 const vertexShader = `
   uniform float uTime;
@@ -45,8 +45,7 @@ const createGridTerrainScene: SceneFactory = () => {
   let camera: THREE.PerspectiveCamera;
   let material: THREE.ShaderMaterial;
 
-  const scene: SceneWebGL = {
-    kind: "webgl",
+  const scene: Scene = {
     name: "Grid Terrain",
     supportsPalette: true,
     init() {
@@ -73,7 +72,7 @@ const createGridTerrainScene: SceneFactory = () => {
       mesh.rotation.x = -Math.PI / 2;
       renderScene.add(mesh);
     },
-    render(ctx: SceneContextWebGL) {
+    render(ctx: SceneContext) {
       camera.aspect = ctx.width / ctx.height;
       camera.updateProjectionMatrix();
 

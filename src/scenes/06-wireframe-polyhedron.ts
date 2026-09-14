@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { hexToRgb } from "./_shared/color-utils";
-import type { SceneContextWebGL, SceneFactory, SceneWebGL } from "./_shared/types";
+import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 
 /**
  * 回転する複数のワイヤーフレーム多面体のシーン(WebGL)。カラーパレット対応。
@@ -12,8 +12,7 @@ const createWireframePolyhedronScene: SceneFactory = () => {
   const meshes: THREE.LineSegments[] = [];
   const materials: THREE.LineBasicMaterial[] = [];
 
-  const scene: SceneWebGL = {
-    kind: "webgl",
+  const scene: Scene = {
     name: "Wireframe Polyhedron",
     supportsPalette: true,
     init() {
@@ -33,7 +32,7 @@ const createWireframePolyhedronScene: SceneFactory = () => {
         materials.push(material);
       }
     },
-    render(ctx: SceneContextWebGL) {
+    render(ctx: SceneContext) {
       camera.aspect = ctx.width / ctx.height;
       camera.updateProjectionMatrix();
 

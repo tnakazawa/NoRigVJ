@@ -3,7 +3,7 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { hexToRgb } from "./_shared/color-utils";
-import type { SceneContextWebGL, SceneFactory, SceneWebGL } from "./_shared/types";
+import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 
 const PARTICLE_COUNT = 800;
 
@@ -21,11 +21,10 @@ const createBloomParticlesScene: SceneFactory = () => {
   let basePositions: Float32Array;
   let seeds: Float32Array;
 
-  const scene: SceneWebGL = {
-    kind: "webgl",
+  const scene: Scene = {
     name: "Bloom Particles",
     supportsPalette: true,
-    init(ctx: SceneContextWebGL) {
+    init(ctx: SceneContext) {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
       camera.position.z = 8;
@@ -64,7 +63,7 @@ const createBloomParticlesScene: SceneFactory = () => {
       bloomPass = new UnrealBloomPass(new THREE.Vector2(ctx.width, ctx.height), 1.2, 0.6, 0.1);
       composer.addPass(bloomPass);
     },
-    render(ctx: SceneContextWebGL) {
+    render(ctx: SceneContext) {
       camera.aspect = ctx.width / ctx.height;
       camera.updateProjectionMatrix();
       composer.setSize(ctx.width, ctx.height);

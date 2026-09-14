@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { hexToRgb } from "./_shared/color-utils";
-import type { SceneContextWebGL, SceneFactory, SceneWebGL } from "./_shared/types";
+import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 
 const vertexShader = `
   varying vec2 vUv;
@@ -77,11 +77,10 @@ const createFeedbackLoopScene: SceneFactory = () => {
     targetB = new THREE.WebGLRenderTarget(w, h);
   }
 
-  const scene: SceneWebGL = {
-    kind: "webgl",
+  const scene: Scene = {
     name: "Feedback Loop",
     supportsPalette: true,
-    init(ctx: SceneContextWebGL) {
+    init(ctx: SceneContext) {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
       material = new THREE.ShaderMaterial({
@@ -103,7 +102,7 @@ const createFeedbackLoopScene: SceneFactory = () => {
       ensureRenderTargets(ctx.renderer, ctx.width, ctx.height);
       ready = true;
     },
-    render(ctx: SceneContextWebGL) {
+    render(ctx: SceneContext) {
       if (!ready) return;
       ensureRenderTargets(ctx.renderer, ctx.width, ctx.height);
 
