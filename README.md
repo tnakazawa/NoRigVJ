@@ -28,6 +28,11 @@ Canvas 2D / WebGL(three.js)の併存構成。1シーン1ファイルで `src/sce
 - **Bar Spectrum**(Canvas 2D) — 低域でうねるバー。時間経過で色相が回転する配色(カラーパレット非対応)。
 - **Noise Field**(Canvas 2D) — 高域で散らばるパーティクル風ノイズ。カラーパレット対応。
 - **Feedback Loop**(WebGL) — 前フレームの描画を歪ませながら重ねるフィードバックループ表現。カラーパレット対応。
+- **Plasma Lava**(WebGL) — 複数のsin波を合成した古典的プラズマ/溶岩模様。カラーパレット対応。
+- **Wireframe Polyhedron**(WebGL) — 回転する複数のワイヤーフレーム多面体。奥行きのある構図。カラーパレット対応。
+- **Kaleidoscope**(WebGL) — 極座標の角度分割による万華鏡状の反復模様。カラーパレット対応。
+- **Grid Terrain**(WebGL) — 音声で波打つワイヤーフレーム地形。奥行きのある見下ろし構図。カラーパレット対応。
+- **Bloom Particles**(WebGL) — 発光(Bloom)する加算合成パーティクル群。カラーパレット対応。
 
 ## カラーパレット
 
