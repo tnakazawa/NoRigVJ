@@ -3,7 +3,7 @@ import { startCrossfade } from "./crossfade";
 import { createLayer, disposeLayer, renderLayer, resizeLayer, type Layer } from "./layer";
 import { DEFAULT_PALETTE, PALETTE_PRESETS } from "./palettes";
 import { deletePreset, loadPresets, savePreset } from "./presets";
-import { sceneNames, type Palette } from "./scenes";
+import { sceneNames, sceneSupportsPalette, type Palette } from "./scenes";
 import { CHANNEL_NAME, type CrossfadeInstruction, type TriggerInstruction, type VJState } from "./shared";
 
 const displaysListEl = document.getElementById("displays-list")!;
@@ -146,6 +146,15 @@ function rebuildPendingLayer(entry: DisplayEntry, sceneIndex: number, palette: P
     entry.pendingPreviewWrap.clientHeight || 1,
   );
   updateCrossfadeButtonState(entry);
+  updatePaletteUIState(entry);
+}
+
+/** 予約シーンがカラーパレット非対応なら、パレットUI(プリセット選択・カラーピッカー)を無効化する。 */
+function updatePaletteUIState(entry: DisplayEntry) {
+  const supportsPalette = sceneSupportsPalette[entry.pendingLayer.sceneIndex];
+  entry.paletteSelectEl.disabled = !supportsPalette;
+  entry.mainColorInput.disabled = !supportsPalette;
+  entry.subColorInput.disabled = !supportsPalette;
 }
 
 /** プリセットselectの選択肢を、localStorageの最新内容で作り直す。可能なら選択中の値を維持する。 */
@@ -375,6 +384,7 @@ function addDisplay() {
   subColorInput.value = entry.pendingLayer.palette.sub;
   populatePresetSelect(presetSelectEl);
   updateCrossfadeButtonState(entry);
+  updatePaletteUIState(entry);
 
   selectEl.addEventListener("change", () => {
     rebuildPendingLayer(entry, Number(selectEl.value), { ...entry.pendingLayer.palette });

@@ -12,8 +12,14 @@ export const sceneFactories: SceneFactory[] = Object.keys(modules)
   .sort()
   .map((path) => modules[path].default);
 
+// 起動時に1回だけ使い捨てインスタンスを生成し、name/supportsPaletteを読む。
+const sceneInstances = sceneFactories.map((factory) => factory());
+
 // シーン名 → sceneFactories のインデックス。クロスフェードやプリセットは sceneIndex ではなく
-// シーン名で遷移先を指定するため、都度これで引く(使い捨てインスタンスを1つ作ってnameだけ読む)。
-export const sceneNames: string[] = sceneFactories.map((factory) => factory().name);
+// シーン名で遷移先を指定するため、都度これで引く。
+export const sceneNames: string[] = sceneInstances.map((scene) => scene.name);
+
+// シーンごとのカラーパレット対応有無。sceneIndexで引き、非対応シーンのパレットUIを無効化するのに使う。
+export const sceneSupportsPalette: boolean[] = sceneInstances.map((scene) => scene.supportsPalette);
 
 export type { Scene, SceneContext, Palette } from "./_shared/types";
