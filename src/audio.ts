@@ -16,10 +16,12 @@ export class AudioAnalyzer {
   private analyser: AnalyserNode | null = null;
   private data: Uint8Array | null = null;
   private enabled = false;
+  private stream: MediaStream | null = null;
 
   /** マイクの使用許可を求め、解析を開始する。 */
   async start(): Promise<void> {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    this.stream = stream;
     this.ctx = new AudioContext();
     const source = this.ctx.createMediaStreamSource(stream);
     this.analyser = this.ctx.createAnalyser();
@@ -28,6 +30,17 @@ export class AudioAnalyzer {
     source.connect(this.analyser);
     this.data = new Uint8Array(this.analyser.frequencyBinCount);
     this.enabled = true;
+  }
+
+  /** マイクの使用を停止し、ストリーム・AudioContextを解放する。再度 `start()` すれば再開できる。 */
+  stop(): void {
+    this.stream?.getTracks().forEach((track) => track.stop());
+    this.stream = null;
+    this.ctx?.close();
+    this.ctx = null;
+    this.analyser = null;
+    this.data = null;
+    this.enabled = false;
   }
 
   /** @returns マイクの使用が既に許可され、解析中であれば true */

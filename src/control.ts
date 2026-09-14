@@ -243,6 +243,11 @@ function createDisplayRow(label: number) {
 
   paletteRow.append(paletteSelectEl.el, mainColorInput, subColorInput);
 
+  // シーン選択とカラー選択は1行にまとめる
+  const sceneColorRow = document.createElement("div");
+  sceneColorRow.className = "control-row";
+  sceneColorRow.append(selectEl, paletteRow);
+
   const presetRow = document.createElement("div");
   presetRow.className = "preset-row";
   const presetSaveBtn = document.createElement("button");
@@ -256,12 +261,14 @@ function createDisplayRow(label: number) {
   crossfadeBtn.className = "crossfade-btn";
   crossfadeBtn.textContent = "Crossfade";
 
+  // 「閉じる」は行のコントロール一覧ではなく、枠右上の✗ボタンで行う
   const closeBtn = document.createElement("button");
   closeBtn.className = "close-btn";
-  closeBtn.textContent = "Close";
+  closeBtn.textContent = "✕";
+  closeBtn.title = "Close";
 
-  controls.append(labelEl, selectEl, paletteRow, presetRow, crossfadeBtn, closeBtn);
-  rowEl.append(previewGroup, controls);
+  controls.append(labelEl, sceneColorRow, crossfadeBtn, presetRow);
+  rowEl.append(previewGroup, controls, closeBtn);
 
   return {
     rowEl,
@@ -482,11 +489,15 @@ function setCrossfadeDuration(seconds: number) {
   crossfadeDurationValueEl.textContent = seconds.toFixed(1);
 }
 
-async function enableMic() {
-  if (audio.isEnabled()) return;
+async function toggleMic() {
+  if (audio.isEnabled()) {
+    audio.stop();
+    micToggleBtn.textContent = "Enable Mic (Space)";
+    return;
+  }
   try {
     await audio.start();
-    micToggleBtn.textContent = "Mic: ON";
+    micToggleBtn.textContent = "Disable Mic (Space)";
   } catch (err) {
     console.error("Failed to access microphone", err);
   }
@@ -504,7 +515,7 @@ crossfadeDurationSlider.addEventListener("input", () => {
 });
 
 micToggleBtn.addEventListener("click", () => {
-  enableMic();
+  toggleMic();
 });
 
 triggerButtons.forEach((btn, i) => {
@@ -522,7 +533,7 @@ window.addEventListener("keydown", (e) => {
     setIntensity(manualIntensity - 0.1);
   } else if (e.key === " ") {
     e.preventDefault();
-    enableMic();
+    toggleMic();
   } else if (!isFormField && (e.key === "1" || e.key === "2" || e.key === "3")) {
     fireTrigger((Number(e.key) - 1) as 0 | 1 | 2);
   }
