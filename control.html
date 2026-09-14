@@ -37,8 +37,8 @@
       }
       .display-row {
         display: flex;
-        gap: 12px;
-        align-items: center;
+        flex-direction: column;
+        gap: 10px;
         background: #1a1a1a;
         border: 1px solid #333;
         border-radius: 6px;
@@ -61,7 +61,7 @@
       }
       .display-preview {
         position: relative;
-        width: 220px;
+        width: 380px;
         aspect-ratio: 16 / 9;
         background: #000;
         flex: 0 0 auto;
@@ -69,7 +69,7 @@
         overflow: hidden;
       }
       .display-preview.pending-preview {
-        width: 140px;
+        width: 240px;
       }
       .display-preview canvas {
         position: absolute;
@@ -80,10 +80,10 @@
       }
       .display-row-controls {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
         gap: 6px;
-        flex: 1 1 auto;
-        min-width: 0;
+        align-items: center;
       }
       .display-row-label {
         font-size: 12px;
@@ -205,6 +205,9 @@
         overflow-y: auto;
         box-sizing: border-box;
       }
+      .panel-footer {
+        margin-top: auto;
+      }
       h1 {
         font-size: 15px;
         margin: 0;
@@ -232,9 +235,12 @@
         opacity: 0.4;
         cursor: not-allowed;
       }
-      .crossfade-btn {
+      .crossfade-btn,
+      .primary-btn {
         background: #2d6a4f;
         border-color: #52b788;
+      }
+      .crossfade-btn {
         text-align: center;
       }
       input[type="range"] {
@@ -271,8 +277,8 @@
           <button id="trigger-2">Trigger 2</button>
           <button id="trigger-3">Trigger 3</button>
         </section>
-        <section>
-          <button id="add-display">Add Display</button>
+        <section class="panel-footer">
+          <button id="add-display" class="primary-btn">Add Display</button>
           <div id="status">Displays: 0 connected</div>
         </section>
       </div>

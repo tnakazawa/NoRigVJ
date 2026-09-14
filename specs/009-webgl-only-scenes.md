@@ -69,3 +69,4 @@ Pulse Rings・Noise Fieldは手動トリガー演出([specs/007-manual-trigger.m
 - **Noise Field**(`03-noise-field.ts`): `Points` + `BufferGeometry`(`09-bloom-particles.ts` と同じ「毎フレーム`BufferAttribute`を書き換える」パターン、Bloomなし)。パーティクル数は450固定とし、`treble` に応じた可変カウントは「サイズ・不透明度への反映」に置き換えた(仕様通り)。Color Flash(Trigger 3)は、`lerpColor()` がhex文字列専用でrgb()文字列の二重補間ができないため(以前BPM機能で踏んだのと同じ制約)、`hexToRgb()` で成分を取り出しJS側でRGB値を直接計算している。
 - `src/scenes/_shared/color-utils.ts` の `hsl()` は使用箇所が無くなったため削除した。
 - 実機Chrome(開発サーバー、`window.open` を一時的にスタブ化してこの環境の制約を回避)で、Pulse Rings・Noise Fieldの手動トリガー3種ずつ・Bar Spectrumのトリガー無効化・複数投影窓(3投影窓、Feedback Loop/Noise Field/Bar Spectrum)でのクロスフェードを確認。FPS計測(`requestAnimationFrame` ベースの簡易カウンタ)は、単一投影窓・3投影窓同時(クロスフェード含め実質6レイヤー)とも60fps安定で、Canvas版時代と同等以上であることを確認した。
+- 本文中の「Bar Spectrumはパレット非対応」は後日変更された。バー1本の幅を半分にし、位置に応じてmain→subへ線形補間するパレット対応シーンになった。手動トリガー非対応シーンの実例は [10-rainbow.ts](../src/scenes/10-rainbow.ts) が引き継いでいる。

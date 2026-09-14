@@ -1,12 +1,12 @@
 import * as THREE from "three";
+import { hexToRgb } from "./_shared/color-utils";
 import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 
 const BAR_COUNT = 32;
 
 /**
- * 低域〜高域でうねるバーのシーン(WebGL)。左は低域、右は高域に反応する。カラーパレット非対応
- * (時間経過で色相が回転する配色をそのまま活かすため)。奥行き・簡単なライティングによる陰影は
- * WebGLならでは。
+ * 低域〜高域でうねるバーのシーン(WebGL)。左は低域、右は高域に反応する。カラーパレット対応
+ * (バーの位置に応じてmain→subへ線形補間)。奥行き・簡単なライティングによる陰影はWebGLならでは。
  */
 const createBarSpectrumScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -17,7 +17,7 @@ const createBarSpectrumScene: SceneFactory = () => {
 
   const scene: Scene = {
     name: "Bar Spectrum",
-    supportsPalette: false,
+    supportsPalette: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -29,7 +29,8 @@ const createBarSpectrumScene: SceneFactory = () => {
       light.position.set(3, 6, 6);
       renderScene.add(light);
 
-      const geometry = new THREE.BoxGeometry(0.6, 1, 0.6);
+      // バー1本の幅を従来の半分にした(0.6→0.3)
+      const geometry = new THREE.BoxGeometry(0.3, 1, 0.3);
       const material = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.2 });
       instancedMesh = new THREE.InstancedMesh(geometry, material, BAR_COUNT);
       instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(BAR_COUNT * 3), 3);
@@ -43,6 +44,9 @@ const createBarSpectrumScene: SceneFactory = () => {
       const bass = Math.min(2.5, ctx.audio.bass);
       const mid = Math.min(2.5, ctx.audio.mid);
       const treble = Math.min(2.5, ctx.audio.treble);
+
+      const [mr, mg, mb] = hexToRgb(ctx.palette.main);
+      const [sr, sg, sb] = hexToRgb(ctx.palette.sub);
 
       for (let i = 0; i < BAR_COUNT; i++) {
         const n = Math.sin(i * 0.5 + ctx.time * 2) * 0.5 + 0.5;
@@ -60,7 +64,8 @@ const createBarSpectrumScene: SceneFactory = () => {
         dummy.updateMatrix();
         instancedMesh.setMatrixAt(i, dummy.matrix);
 
-        color.setHSL(((200 + i * 6 + ctx.time * 20) % 360) / 360, 0.85, 0.55);
+        // バーの位置(0=左端/低域 〜 1=右端/高域)に応じてmain→subへ線形補間する
+        color.setRGB(mr + (sr - mr) * pos, mg + (sg - mg) * pos, mb + (sb - mb) * pos);
         instancedMesh.setColorAt(i, color);
       }
       instancedMesh.instanceMatrix.needsUpdate = true;
