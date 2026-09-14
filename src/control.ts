@@ -15,12 +15,11 @@ const crossfadeDurationValueEl = document.getElementById("crossfade-duration-val
 const micToggleBtn = document.getElementById("mic-toggle") as HTMLButtonElement;
 const addDisplayBtn = document.getElementById("add-display") as HTMLButtonElement;
 const statusEl = document.getElementById("status")!;
-const bpmDisplayEl = document.getElementById("bpm-display")!;
 
 let startTime = performance.now();
 let manualIntensity = 1; // ← / → キー、またはスライダーで調整
 let crossfadeDurationMs = 1000;
-let latestAudio: AudioLevels = { volume: 0, bass: 0, mid: 0, treble: 0, beatPulse: 0, bpm: 0 };
+let latestAudio: AudioLevels = { volume: 0, bass: 0, mid: 0, treble: 0 };
 let latestTime = 0;
 
 const audio = new AudioAnalyzer();
@@ -484,26 +483,21 @@ tickWorker.onmessage = () => tick();
 function tick() {
   const time = (performance.now() - startTime) / 1000;
 
-  const levels: AudioLevels = audio.isEnabled()
+  const levels = audio.isEnabled()
     ? audio.getLevels()
     : {
-        // マイク未接続時はダミーの揺れで動作確認できるようにする(ビートは検出しない)
+        // マイク未接続時はダミーの揺れで動作確認できるようにする
         volume: (Math.sin(time * 1.3) * 0.5 + 0.5) * 0.4,
         bass: (Math.sin(time * 0.7) * 0.5 + 0.5) * 0.5,
         mid: (Math.sin(time * 1.9) * 0.5 + 0.5) * 0.4,
         treble: (Math.sin(time * 2.6) * 0.5 + 0.5) * 0.3,
-        beatPulse: 0,
-        bpm: 0,
       };
 
-  const scaledLevels: AudioLevels = {
+  const scaledLevels = {
     volume: levels.volume * manualIntensity,
     bass: levels.bass * manualIntensity,
     mid: levels.mid * manualIntensity,
     treble: levels.treble * manualIntensity,
-    // beatPulse/bpmは演出の強弱・テンポ表示であって音量ではないため、強度倍率の対象外
-    beatPulse: levels.beatPulse,
-    bpm: levels.bpm,
   };
 
   latestTime = time;
@@ -543,7 +537,6 @@ function tick() {
   channel.postMessage(state);
 
   statusEl.textContent = `Displays: ${displays.size} connected`;
-  bpmDisplayEl.textContent = `BPM: ${scaledLevels.bpm > 0 ? Math.round(scaledLevels.bpm) : "--"}`;
 }
 
 // プレビュー描画は見た目の滑らかさ優先でrAFのまま。操作窓が隠れて一時的に

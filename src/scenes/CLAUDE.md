@@ -10,7 +10,6 @@
 - [_shared/color-utils.ts](_shared/color-utils.ts) — `hsl()`(非パレット対応シーン用)、`hexToRgb()` / `lerpColor()`(パレット対応シーン用)などの色ヘルパー。
 - [index.ts](index.ts) — `import.meta.glob` で `src/scenes/*.ts`(`_shared/` を除く)を自動収集し、`sceneFactories: SceneFactory[]` をexportする。
 - 実装済みシーン: `01-pulse-rings.ts` / `03-noise-field.ts`(Canvas 2D、パレット対応) / `02-bar-spectrum.ts`(Canvas 2D、パレット非対応・時間経過で色相が回る) / `04-feedback-loop.ts`(WebGL、three.jsによるRenderTargetのピンポンでフィードバックループを表現、パレット対応)。カラーパレットの背景は [../../specs/004-scene-color-palette.md](../../specs/004-scene-color-palette.md) 参照。
-- 4シーンとも `ctx.audio.beatPulse`(ビート発生時1→指数減衰)を使ったビート演出を持つ([../../specs/007-bpm-beat-sync.md](../../specs/007-bpm-beat-sync.md)参照): Pulse Ringsはビートごとにリングを1本追加生成して弾けさせる、Bar Spectrumは白フラッシュ、Noise Fieldはパーティクルを放射方向へ一瞬押し出す、Feedback Loopは発光(glow)を一瞬強める。新規シーン追加時、`beatPulse` を使うかどうかは任意(必須ではない)。
 
 ## シーン追加の手順
 
