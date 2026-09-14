@@ -51,12 +51,20 @@
       .preview-group {
         display: flex;
         gap: 8px;
-        flex: 0 0 auto;
+        width: 100%;
       }
       .preview-slot {
         display: flex;
         flex-direction: column;
         gap: 4px;
+        min-width: 0;
+      }
+      /* Current:Next ≒ 300:190 の比率を保ったまま、枠の幅いっぱいに広がる */
+      .preview-slot.current-slot {
+        flex: 1 1 0;
+      }
+      .preview-slot.pending-slot {
+        flex: 0.63 0.63 0;
       }
       .preview-slot-label {
         font-size: 11px;
@@ -65,15 +73,11 @@
       }
       .display-preview {
         position: relative;
-        width: 300px;
+        width: 100%;
         aspect-ratio: 16 / 9;
         background: #000;
-        flex: 0 0 auto;
         border-radius: 4px;
         overflow: hidden;
-      }
-      .display-preview.pending-preview {
-        width: 190px;
       }
       .display-preview canvas {
         position: absolute;
@@ -300,14 +304,12 @@
           <input type="range" id="crossfade-duration" min="0.2" max="5" step="0.1" value="1" />
         </section>
         <section>
-          <button id="mic-toggle">Enable Mic (Space)</button>
-        </section>
-        <section>
           <button id="trigger-1" class="trigger-btn">Trigger 1</button>
           <button id="trigger-2" class="trigger-btn">Trigger 2</button>
           <button id="trigger-3" class="trigger-btn">Trigger 3</button>
         </section>
         <section class="panel-footer">
+          <button id="mic-toggle">Enable Mic (Space)</button>
           <button id="add-display" class="primary-btn">Add Display</button>
           <div id="status">Displays: 0 connected</div>
         </section>

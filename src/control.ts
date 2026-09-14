@@ -195,7 +195,7 @@ function createDisplayRow(label: number) {
   previewGroup.className = "preview-group";
 
   const currentSlot = document.createElement("div");
-  currentSlot.className = "preview-slot";
+  currentSlot.className = "preview-slot current-slot";
   const currentLabel = document.createElement("div");
   currentLabel.className = "preview-slot-label";
   currentLabel.textContent = "Current";
@@ -204,7 +204,7 @@ function createDisplayRow(label: number) {
   currentSlot.append(currentLabel, currentPreviewWrap);
 
   const pendingSlot = document.createElement("div");
-  pendingSlot.className = "preview-slot";
+  pendingSlot.className = "preview-slot pending-slot";
   const pendingLabel = document.createElement("div");
   pendingLabel.className = "preview-slot-label";
   pendingLabel.textContent = "Next";
@@ -243,10 +243,14 @@ function createDisplayRow(label: number) {
 
   paletteRow.append(paletteSelectEl.el, mainColorInput, subColorInput);
 
-  // シーン選択とカラー選択は1行にまとめる
+  const crossfadeBtn = document.createElement("button");
+  crossfadeBtn.className = "crossfade-btn";
+  crossfadeBtn.textContent = "Crossfade";
+
+  // シーン選択・カラー選択・Crossfadeは1行にまとめる
   const sceneColorRow = document.createElement("div");
   sceneColorRow.className = "control-row";
-  sceneColorRow.append(selectEl, paletteRow);
+  sceneColorRow.append(selectEl, paletteRow, crossfadeBtn);
 
   const presetRow = document.createElement("div");
   presetRow.className = "preset-row";
@@ -257,17 +261,13 @@ function createDisplayRow(label: number) {
   presetDeleteBtn.textContent = "Delete";
   presetRow.append(presetSaveBtn, presetSelectEl, presetDeleteBtn);
 
-  const crossfadeBtn = document.createElement("button");
-  crossfadeBtn.className = "crossfade-btn";
-  crossfadeBtn.textContent = "Crossfade";
-
   // 「閉じる」は行のコントロール一覧ではなく、枠右上の✗ボタンで行う
   const closeBtn = document.createElement("button");
   closeBtn.className = "close-btn";
   closeBtn.textContent = "✕";
   closeBtn.title = "Close";
 
-  controls.append(labelEl, sceneColorRow, crossfadeBtn, presetRow);
+  controls.append(labelEl, sceneColorRow, presetRow);
   rowEl.append(previewGroup, controls, closeBtn);
 
   return {
