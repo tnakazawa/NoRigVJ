@@ -1,16 +1,23 @@
+/** マイク入力から算出した音声レベル。各値は0-1に正規化される。 */
 export interface AudioLevels {
-  volume: number;    // 0-1 全体音量
-  bass: number;      // 0-1 低域
-  mid: number;       // 0-1 中域
-  treble: number;    // 0-1 高域
+  /** 全体音量 */
+  volume: number;
+  /** 低域 */
+  bass: number;
+  /** 中域 */
+  mid: number;
+  /** 高域 */
+  treble: number;
 }
 
+/** `getUserMedia` でマイク入力を取得し、周波数帯域ごとの音声レベルを算出する。 */
 export class AudioAnalyzer {
   private ctx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private data: Uint8Array | null = null;
   private enabled = false;
 
+  /** マイクの使用許可を求め、解析を開始する。 */
   async start(): Promise<void> {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     this.ctx = new AudioContext();
@@ -23,10 +30,12 @@ export class AudioAnalyzer {
     this.enabled = true;
   }
 
+  /** @returns マイクの使用が既に許可され、解析中であれば true */
   isEnabled(): boolean {
     return this.enabled;
   }
 
+  /** @returns 直近のフレームの周波数データから算出した音声レベル。未開始なら全て0。 */
   getLevels(): AudioLevels {
     if (!this.analyser || !this.data) {
       return { volume: 0, bass: 0, mid: 0, treble: 0 };

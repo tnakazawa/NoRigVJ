@@ -1,7 +1,7 @@
 import { lerpColor } from "./_shared/color-utils";
 import type { Scene2D, SceneFactory } from "./_shared/types";
 
-// 音量に反応する同心円
+/** 音量に反応する同心円のシーン。カラーパレット対応。 */
 const createPulseRingsScene: SceneFactory = () => {
   const scene: Scene2D = {
     kind: "2d",

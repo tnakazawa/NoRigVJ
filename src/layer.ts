@@ -21,6 +21,13 @@ export interface Layer {
   renderer: THREE.WebGLRenderer;
 }
 
+/**
+ * 新しいレイヤーを生成する。`sceneFactories` から毎回新規にシーンインスタンスを作るため、
+ * 同じ `sceneIndex` を渡しても前回までの状態(WebGLシーンのRenderTargetの中身など)は引き継がれない。
+ * @param sceneIndex `sceneFactories` のインデックス
+ * @param palette このレイヤーが使うカラーパレット
+ * @returns DOMにはまだ追加されていない、初期化済みのレイヤー
+ */
 export function createLayer(sceneIndex: number, palette: Palette): Layer {
   const wrapEl = document.createElement("div");
   wrapEl.style.position = "absolute";
@@ -57,12 +64,18 @@ export function createLayer(sceneIndex: number, palette: Palette): Layer {
   return layer;
 }
 
+/** シーンの `kind` に応じて、2D用/WebGL用のどちらのcanvasを表示するか切り替える。 */
 export function updateLayerVisibility(layer: Layer) {
   const isWebGL = layer.scene.kind === "webgl";
   layer.canvas2d.style.display = isWebGL ? "none" : "block";
   layer.canvasGl.style.display = isWebGL ? "block" : "none";
 }
 
+/**
+ * canvas2枚の内部解像度とWebGLレンダラーの出力サイズを、指定サイズ(devicePixelRatio込み)に合わせる。
+ * `display: none` の間は呼び出し元の `width`/`height` が0になりうるため、呼ぶ側で表示状態を
+ * 変えた直後に呼び直す必要がある(既知の注意点は src/CLAUDE.md 参照)。
+ */
 export function resizeLayer(layer: Layer, width: number, height: number) {
   const dpr = window.devicePixelRatio;
   layer.canvas2d.width = Math.max(1, width * dpr);
@@ -71,6 +84,7 @@ export function resizeLayer(layer: Layer, width: number, height: number) {
   layer.renderer.setSize(Math.max(1, width), Math.max(1, height), false);
 }
 
+/** レイヤーのシーンを1フレーム分描画する。 */
 export function renderLayer(layer: Layer, width: number, height: number, time: number, audio: AudioLevels) {
   if (layer.scene.kind === "2d") {
     layer.scene.render({ ctx: layer.ctx2d, width, height, time, audio, palette: layer.palette });
@@ -79,6 +93,7 @@ export function renderLayer(layer: Layer, width: number, height: number, time: n
   }
 }
 
+/** レイヤーが保持するWebGLリソースを解放し、DOMから取り除く。 */
 export function disposeLayer(layer: Layer) {
   layer.renderer.dispose();
   layer.wrapEl.remove();

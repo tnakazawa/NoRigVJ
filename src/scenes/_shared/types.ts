@@ -1,27 +1,35 @@
 import type { AudioLevels } from "../../audio";
 import type { WebGLRenderer } from "three";
 
+/** メイン/サブの2色からなるカラーパレット。 */
 export interface Palette {
-  main: string; // 16進カラーコード 例: "#ff00ff"
+  /** 16進カラーコード 例: "#ff00ff" */
+  main: string;
+  /** 16進カラーコード */
   sub: string;
 }
 
+/** シーンの `render()` に渡される、2D/WebGL共通のコンテキスト。 */
 export interface SceneContextBase {
   width: number;
   height: number;
-  time: number; // 秒
+  /** 経過秒数 */
+  time: number;
   audio: AudioLevels;
   palette: Palette;
 }
 
+/** Canvas 2Dシーン向けのレンダリングコンテキスト。 */
 export interface SceneContext2D extends SceneContextBase {
   ctx: CanvasRenderingContext2D;
 }
 
+/** WebGLシーン向けのレンダリングコンテキスト。 */
 export interface SceneContextWebGL extends SceneContextBase {
   renderer: WebGLRenderer;
 }
 
+/** Canvas 2D APIで描画するシーン。 */
 export interface Scene2D {
   kind: "2d";
   name: string;
@@ -30,6 +38,7 @@ export interface Scene2D {
   render(ctx: SceneContext2D): void;
 }
 
+/** WebGL(three.js)で描画するシーン。 */
 export interface SceneWebGL {
   kind: "webgl";
   name: string;
@@ -39,6 +48,7 @@ export interface SceneWebGL {
   render(ctx: SceneContextWebGL): void;
 }
 
+/** 描画方式(`kind`)によって2Dシーン/WebGLシーンのいずれかになるシーン。 */
 export type Scene = Scene2D | SceneWebGL;
 
 /** ページ(操作UI/投影窓)ごとに独立したシーンインスタンスを作るための生成関数 */

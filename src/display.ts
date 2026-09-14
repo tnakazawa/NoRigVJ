@@ -17,6 +17,7 @@ let lastCrossfadeId: string | null = null;
 
 let latest: VJState | null = null;
 
+/** currentLayer・(実行中なら)crossfading.layer をウィンドウサイズに合わせてリサイズする。 */
 function resize() {
   resizeLayer(currentLayer, window.innerWidth, window.innerHeight);
   if (crossfading) {
@@ -64,6 +65,7 @@ channel.onmessage = (e: MessageEvent<VJState>) => {
   }
 };
 
+/** 毎フレーム、現在のレイヤー(と実行中ならクロスフェード先のレイヤー)を描画する。 */
 function loop() {
   const width = window.innerWidth;
   const height = window.innerHeight;

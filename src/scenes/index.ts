@@ -6,6 +6,7 @@ import type { SceneFactory } from "./_shared/types";
 // `NN-scene-name.ts` として default export で SceneFactory を返すファイルを置くだけでよい。
 const modules = import.meta.glob<{ default: SceneFactory }>("./*.ts", { eager: true });
 
+/** ビルド時に自動収集された、ファイル名の連番順の全シーンのファクトリ。 */
 export const sceneFactories: SceneFactory[] = Object.keys(modules)
   .filter((path) => path !== "./index.ts")
   .sort()

@@ -1,7 +1,7 @@
 import { lerpColor } from "./_shared/color-utils";
 import type { Scene2D, SceneFactory } from "./_shared/types";
 
-// 高域で散らばるパーティクル風ノイズ
+/** 高域で散らばるパーティクル風ノイズのシーン。カラーパレット対応。 */
 const createNoiseFieldScene: SceneFactory = () => {
   const scene: Scene2D = {
     kind: "2d",

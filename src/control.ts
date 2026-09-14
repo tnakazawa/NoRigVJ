@@ -51,6 +51,7 @@ interface DisplayEntry {
 const displays = new Map<string, DisplayEntry>();
 let displayCounter = 0;
 
+/** 投影窓が1つもない間だけ「投影窓がありません」の案内を表示する。 */
 function updateDisplaysEmptyVisibility() {
   displaysEmptyEl.style.display = displays.size === 0 ? "block" : "none";
 }
@@ -59,6 +60,7 @@ function palettesEqual(a: Palette, b: Palette): boolean {
   return a.main === b.main && a.sub === b.sub;
 }
 
+/** 予約(pendingLayer)が現在の表示と同じ、またはクロスフェード実行中なら「クロスフェード実行」ボタンを無効化する。 */
 function updateCrossfadeButtonState(entry: DisplayEntry) {
   const same =
     entry.pendingLayer.sceneIndex === entry.currentLayer.sceneIndex &&
@@ -66,6 +68,7 @@ function updateCrossfadeButtonState(entry: DisplayEntry) {
   entry.crossfadeBtn.disabled = same || entry.crossfadingInstructionId !== null;
 }
 
+/** currentLayer・pendingLayerの両方を、それぞれの表示先要素のサイズに合わせてリサイズする。 */
 function resizeEntry(entry: DisplayEntry) {
   const currentWidth = entry.currentPreviewWrap.clientWidth || 1;
   const currentHeight = entry.currentPreviewWrap.clientHeight || 1;
@@ -82,7 +85,12 @@ function resizeEntry(entry: DisplayEntry) {
   }
 }
 
-// 予約(シーン切替を伴う)を新しいレイヤーとして作り直し、予約プレビュー欄に表示する。
+/**
+ * 予約(シーン切替を伴う)を新しいレイヤーとして作り直し、予約プレビュー欄に表示する。
+ * @param entry 対象の投影窓
+ * @param sceneIndex 予約するシーンのインデックス
+ * @param palette 予約するカラーパレット
+ */
 function rebuildPendingLayer(entry: DisplayEntry, sceneIndex: number, palette: Palette) {
   disposeLayer(entry.pendingLayer);
   entry.pendingLayer = createLayer(sceneIndex, palette);
@@ -95,6 +103,7 @@ function rebuildPendingLayer(entry: DisplayEntry, sceneIndex: number, palette: P
   updateCrossfadeButtonState(entry);
 }
 
+/** プリセットselectの選択肢を、localStorageの最新内容で作り直す。可能なら選択中の値を維持する。 */
 function populatePresetSelect(selectEl: HTMLSelectElement) {
   const presets = loadPresets();
   const prevValue = selectEl.value;
@@ -122,6 +131,7 @@ function refreshAllPresetSelects() {
   displays.forEach((entry) => populatePresetSelect(entry.presetSelectEl));
 }
 
+/** 投影窓1行分のDOM要素一式(プレビュー2枠・シーン/パレット/プリセットUI・ボタン類)を組み立てる。 */
 function createDisplayRow(label: number) {
   const rowEl = document.createElement("div");
   rowEl.className = "display-row";
@@ -224,6 +234,7 @@ function createDisplayRow(label: number) {
   };
 }
 
+/** 指定した投影窓に対し、現在の表示から予約(pendingLayer)へのクロスフェードを開始する。 */
 function startEntryCrossfade(entry: DisplayEntry) {
   if (entry.crossfadingInstructionId) return;
 
@@ -261,6 +272,7 @@ function startEntryCrossfade(entry: DisplayEntry) {
   );
 }
 
+/** 「投影窓を追加」ボタンの処理。新規投影窓を開き、対応する行・レイヤー・イベントハンドラを組み立てる。 */
 function addDisplay() {
   const id = crypto.randomUUID();
   displayCounter += 1;
@@ -389,6 +401,7 @@ function addDisplay() {
   updateDisplaysEmptyVisibility();
 }
 
+/** 投影窓を閉じ、対応するレイヤー・行を破棄して一覧から取り除く。 */
 function removeDisplay(id: string) {
   const entry = displays.get(id);
   if (!entry) return;
@@ -464,6 +477,7 @@ window.addEventListener("keydown", (e) => {
 const tickWorker = new Worker(new URL("./tick-worker.ts", import.meta.url), { type: "module" });
 tickWorker.onmessage = () => tick();
 
+/** Workerから33ms間隔で呼ばれる。音声解析・投影窓の生存確認・BroadcastChannelへの状態送信を行う。 */
 function tick() {
   const time = (performance.now() - startTime) / 1000;
 

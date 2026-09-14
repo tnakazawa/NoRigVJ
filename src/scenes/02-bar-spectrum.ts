@@ -1,7 +1,7 @@
 import { hsl } from "./_shared/color-utils";
 import type { Scene2D, SceneFactory } from "./_shared/types";
 
-// 低域〜高域でうねるバー。左は低域、右は高域に反応する
+/** 低域〜高域でうねるバーのシーン。左は低域、右は高域に反応する。カラーパレット非対応。 */
 const createBarSpectrumScene: SceneFactory = () => {
   const scene: Scene2D = {
     kind: "2d",

@@ -57,7 +57,7 @@ const fragmentShader = `
   }
 `;
 
-// 前フレームの描画結果を歪ませながら次フレームへ重ねるフィードバックループ
+/** 前フレームの描画結果を歪ませながら次フレームへ重ねるフィードバックループのシーン(WebGL)。カラーパレット対応。 */
 const createFeedbackLoopScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
   let camera: THREE.OrthographicCamera;
