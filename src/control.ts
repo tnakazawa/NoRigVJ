@@ -30,14 +30,15 @@ interface DisplayEntry {
   window: Window;
   /** 実際にプレビュー・投影窓に描画されている「現在」のレイヤー */
   currentLayer: Layer;
-  /** クロスフェード実行中のみ存在する「遷移先」のレイヤーと、その instruction id */
-  crossfading: { layer: Layer; instructionId: string } | null;
-  /** シーン選択・パレットUI・プリセット選択が編集する「予約」state。
-   * クロスフェード実行ボタンを押すまで表示には反映されない。 */
-  pendingSceneIndex: number;
-  pendingPalette: Palette;
+  /** 「予約(次に切り替える内容)」を常時プレビューするレイヤー。シーン選択・パレットUI・
+   * プリセット選択はこのレイヤーを編集する。クロスフェード実行時はこれをそのまま
+   * 遷移先として使い、実行後は同じ内容の新しいインスタンスを作り直す。 */
+  pendingLayer: Layer;
+  /** クロスフェード実行中のみ値を持つ(投影窓へ送るinstruction idとしても使う) */
+  crossfadingInstructionId: string | null;
   rowEl: HTMLElement;
-  previewWrap: HTMLElement;
+  currentPreviewWrap: HTMLElement;
+  pendingPreviewWrap: HTMLElement;
   selectEl: HTMLSelectElement;
   paletteSelectEl: HTMLSelectElement;
   mainColorInput: HTMLInputElement;
@@ -60,18 +61,38 @@ function palettesEqual(a: Palette, b: Palette): boolean {
 
 function updateCrossfadeButtonState(entry: DisplayEntry) {
   const same =
-    entry.pendingSceneIndex === entry.currentLayer.sceneIndex &&
-    palettesEqual(entry.pendingPalette, entry.currentLayer.palette);
-  entry.crossfadeBtn.disabled = same || entry.crossfading !== null;
+    entry.pendingLayer.sceneIndex === entry.currentLayer.sceneIndex &&
+    palettesEqual(entry.pendingLayer.palette, entry.currentLayer.palette);
+  entry.crossfadeBtn.disabled = same || entry.crossfadingInstructionId !== null;
 }
 
 function resizeEntry(entry: DisplayEntry) {
-  const width = entry.previewWrap.clientWidth || 1;
-  const height = entry.previewWrap.clientHeight || 1;
-  resizeLayer(entry.currentLayer, width, height);
-  if (entry.crossfading) {
-    resizeLayer(entry.crossfading.layer, width, height);
+  const currentWidth = entry.currentPreviewWrap.clientWidth || 1;
+  const currentHeight = entry.currentPreviewWrap.clientHeight || 1;
+  resizeLayer(entry.currentLayer, currentWidth, currentHeight);
+
+  const pendingWidth = entry.pendingPreviewWrap.clientWidth || 1;
+  const pendingHeight = entry.pendingPreviewWrap.clientHeight || 1;
+  // クロスフェード実行中は pendingLayer が currentPreviewWrap 側にDOM移動している
+  // (旧レイヤーに重ねてフェードインさせるため)。その間は currentPreviewWrap のサイズに合わせる。
+  if (entry.crossfadingInstructionId) {
+    resizeLayer(entry.pendingLayer, currentWidth, currentHeight);
+  } else {
+    resizeLayer(entry.pendingLayer, pendingWidth, pendingHeight);
   }
+}
+
+// 予約(シーン切替を伴う)を新しいレイヤーとして作り直し、予約プレビュー欄に表示する。
+function rebuildPendingLayer(entry: DisplayEntry, sceneIndex: number, palette: Palette) {
+  disposeLayer(entry.pendingLayer);
+  entry.pendingLayer = createLayer(sceneIndex, palette);
+  entry.pendingPreviewWrap.appendChild(entry.pendingLayer.wrapEl);
+  resizeLayer(
+    entry.pendingLayer,
+    entry.pendingPreviewWrap.clientWidth || 1,
+    entry.pendingPreviewWrap.clientHeight || 1,
+  );
+  updateCrossfadeButtonState(entry);
 }
 
 function populatePresetSelect(selectEl: HTMLSelectElement) {
@@ -105,8 +126,28 @@ function createDisplayRow(label: number) {
   const rowEl = document.createElement("div");
   rowEl.className = "display-row";
 
-  const previewWrap = document.createElement("div");
-  previewWrap.className = "display-preview";
+  const previewGroup = document.createElement("div");
+  previewGroup.className = "preview-group";
+
+  const currentSlot = document.createElement("div");
+  currentSlot.className = "preview-slot";
+  const currentLabel = document.createElement("div");
+  currentLabel.className = "preview-slot-label";
+  currentLabel.textContent = "現在";
+  const currentPreviewWrap = document.createElement("div");
+  currentPreviewWrap.className = "display-preview current-preview";
+  currentSlot.append(currentLabel, currentPreviewWrap);
+
+  const pendingSlot = document.createElement("div");
+  pendingSlot.className = "preview-slot";
+  const pendingLabel = document.createElement("div");
+  pendingLabel.className = "preview-slot-label";
+  pendingLabel.textContent = "次へ";
+  const pendingPreviewWrap = document.createElement("div");
+  pendingPreviewWrap.className = "display-preview pending-preview";
+  pendingSlot.append(pendingLabel, pendingPreviewWrap);
+
+  previewGroup.append(currentSlot, pendingSlot);
 
   const controls = document.createElement("div");
   controls.className = "display-row-controls";
@@ -165,11 +206,12 @@ function createDisplayRow(label: number) {
   closeBtn.textContent = "閉じる";
 
   controls.append(labelEl, selectEl, paletteRow, presetRow, crossfadeBtn, closeBtn);
-  rowEl.append(previewWrap, controls);
+  rowEl.append(previewGroup, controls);
 
   return {
     rowEl,
-    previewWrap,
+    currentPreviewWrap,
+    pendingPreviewWrap,
     selectEl,
     paletteSelectEl,
     mainColorInput,
@@ -183,21 +225,40 @@ function createDisplayRow(label: number) {
 }
 
 function startEntryCrossfade(entry: DisplayEntry) {
-  if (entry.crossfading) return;
+  if (entry.crossfadingInstructionId) return;
 
   const instructionId = crypto.randomUUID();
-  const toLayer = createLayer(entry.pendingSceneIndex, { ...entry.pendingPalette });
-  entry.crossfading = { layer: toLayer, instructionId };
+  const toLayer = entry.pendingLayer;
+  entry.crossfadingInstructionId = instructionId;
+
+  // 予約プレビュー欄が空白にならないよう、今から始めるクロスフェードと同じ内容の
+  // 新しい予約レイヤーを先に用意しておく(このクロスフェードが完了したら「予約=現在」になるはずなので、
+  // ボタンはこの時点で正しく無効化される)。
+  entry.pendingLayer = createLayer(toLayer.sceneIndex, { ...toLayer.palette });
+  entry.pendingPreviewWrap.appendChild(entry.pendingLayer.wrapEl);
+  resizeLayer(
+    entry.pendingLayer,
+    entry.pendingPreviewWrap.clientWidth || 1,
+    entry.pendingPreviewWrap.clientHeight || 1,
+  );
   updateCrossfadeButtonState(entry);
 
-  const width = entry.previewWrap.clientWidth || 1;
-  const height = entry.previewWrap.clientHeight || 1;
+  const width = entry.currentPreviewWrap.clientWidth || 1;
+  const height = entry.currentPreviewWrap.clientHeight || 1;
 
-  startCrossfade(entry.previewWrap, entry.currentLayer, toLayer, width, height, crossfadeDurationMs, (finishedLayer) => {
-    entry.currentLayer = finishedLayer;
-    entry.crossfading = null;
-    updateCrossfadeButtonState(entry);
-  });
+  startCrossfade(
+    entry.currentPreviewWrap,
+    entry.currentLayer,
+    toLayer,
+    width,
+    height,
+    crossfadeDurationMs,
+    (finishedLayer) => {
+      entry.currentLayer = finishedLayer;
+      entry.crossfadingInstructionId = null;
+      updateCrossfadeButtonState(entry);
+    },
+  );
 }
 
 function addDisplay() {
@@ -212,7 +273,8 @@ function addDisplay() {
 
   const {
     rowEl,
-    previewWrap,
+    currentPreviewWrap,
+    pendingPreviewWrap,
     selectEl,
     paletteSelectEl,
     mainColorInput,
@@ -225,19 +287,23 @@ function addDisplay() {
   } = createDisplayRow(displayCounter);
   displaysListEl.appendChild(rowEl);
 
-  const initialLayer = createLayer(0, { ...DEFAULT_PALETTE });
-  previewWrap.appendChild(initialLayer.wrapEl);
-  resizeLayer(initialLayer, previewWrap.clientWidth || 1, previewWrap.clientHeight || 1);
+  const currentLayer = createLayer(0, { ...DEFAULT_PALETTE });
+  currentPreviewWrap.appendChild(currentLayer.wrapEl);
+  resizeLayer(currentLayer, currentPreviewWrap.clientWidth || 1, currentPreviewWrap.clientHeight || 1);
+
+  const pendingLayer = createLayer(0, { ...DEFAULT_PALETTE });
+  pendingPreviewWrap.appendChild(pendingLayer.wrapEl);
+  resizeLayer(pendingLayer, pendingPreviewWrap.clientWidth || 1, pendingPreviewWrap.clientHeight || 1);
 
   const entry: DisplayEntry = {
     id,
     window: opened,
-    currentLayer: initialLayer,
-    crossfading: null,
-    pendingSceneIndex: 0,
-    pendingPalette: { ...DEFAULT_PALETTE },
+    currentLayer,
+    pendingLayer,
+    crossfadingInstructionId: null,
     rowEl,
-    previewWrap,
+    currentPreviewWrap,
+    pendingPreviewWrap,
     selectEl,
     paletteSelectEl,
     mainColorInput,
@@ -248,33 +314,32 @@ function addDisplay() {
 
   selectEl.value = "0";
   paletteSelectEl.value = "0";
-  mainColorInput.value = entry.pendingPalette.main;
-  subColorInput.value = entry.pendingPalette.sub;
+  mainColorInput.value = entry.pendingLayer.palette.main;
+  subColorInput.value = entry.pendingLayer.palette.sub;
   populatePresetSelect(presetSelectEl);
   updateCrossfadeButtonState(entry);
 
   selectEl.addEventListener("change", () => {
-    entry.pendingSceneIndex = Number(selectEl.value);
-    updateCrossfadeButtonState(entry);
+    rebuildPendingLayer(entry, Number(selectEl.value), { ...entry.pendingLayer.palette });
   });
 
   paletteSelectEl.addEventListener("change", () => {
     if (paletteSelectEl.value === "custom") return;
     const preset = PALETTE_PRESETS[Number(paletteSelectEl.value)];
-    entry.pendingPalette = { ...preset.palette };
+    entry.pendingLayer.palette = { ...preset.palette };
     mainColorInput.value = preset.palette.main;
     subColorInput.value = preset.palette.sub;
     updateCrossfadeButtonState(entry);
   });
 
   mainColorInput.addEventListener("input", () => {
-    entry.pendingPalette = { ...entry.pendingPalette, main: mainColorInput.value };
+    entry.pendingLayer.palette = { ...entry.pendingLayer.palette, main: mainColorInput.value };
     paletteSelectEl.value = "custom";
     updateCrossfadeButtonState(entry);
   });
 
   subColorInput.addEventListener("input", () => {
-    entry.pendingPalette = { ...entry.pendingPalette, sub: subColorInput.value };
+    entry.pendingLayer.palette = { ...entry.pendingLayer.palette, sub: subColorInput.value };
     paletteSelectEl.value = "custom";
     updateCrossfadeButtonState(entry);
   });
@@ -282,8 +347,8 @@ function addDisplay() {
   presetSaveBtn.addEventListener("click", () => {
     const name = prompt("プリセット名を入力してください");
     if (!name) return;
-    const sceneName = sceneNames[entry.pendingSceneIndex];
-    savePreset(name, sceneName, entry.pendingPalette);
+    const sceneName = sceneNames[entry.pendingLayer.sceneIndex];
+    savePreset(name, sceneName, entry.pendingLayer.palette);
     refreshAllPresetSelects();
   });
 
@@ -297,14 +362,12 @@ function addDisplay() {
       console.warn(`プリセット "${preset.name}" が参照するシーン "${preset.sceneName}" が見つかりません`);
       return;
     }
-    entry.pendingSceneIndex = sceneIdx;
-    entry.pendingPalette = { ...preset.palette };
     selectEl.value = String(sceneIdx);
     mainColorInput.value = preset.palette.main;
     subColorInput.value = preset.palette.sub;
     // プリセットのパレットはPALETTE_PRESETSのいずれかと一致するとは限らないため、カスタム扱いにする
     paletteSelectEl.value = "custom";
-    updateCrossfadeButtonState(entry);
+    rebuildPendingLayer(entry, sceneIdx, { ...preset.palette });
   });
 
   presetDeleteBtn.addEventListener("click", () => {
@@ -333,9 +396,7 @@ function removeDisplay(id: string) {
     entry.window.close();
   }
   disposeLayer(entry.currentLayer);
-  if (entry.crossfading) {
-    disposeLayer(entry.crossfading.layer);
-  }
+  disposeLayer(entry.pendingLayer);
   entry.rowEl.remove();
   displays.delete(id);
   updateDisplaysEmptyVisibility();
@@ -439,11 +500,11 @@ function tick() {
   displays.forEach((entry, id) => {
     sceneIndexByWindow[id] = entry.currentLayer.sceneIndex;
     paletteByWindow[id] = entry.currentLayer.palette;
-    if (entry.crossfading) {
+    if (entry.crossfadingInstructionId) {
       crossfadeByWindow[id] = {
-        id: entry.crossfading.instructionId,
-        toSceneName: sceneNames[entry.crossfading.layer.sceneIndex],
-        toPalette: entry.crossfading.layer.palette,
+        id: entry.crossfadingInstructionId,
+        toSceneName: sceneNames[entry.pendingLayer.sceneIndex],
+        toPalette: entry.pendingLayer.palette,
         durationMs: crossfadeDurationMs,
       };
     }
@@ -466,11 +527,18 @@ function tick() {
 // 止まっても実害はない(音声解析・投影窓への送信は上記tickが継続する)。
 function renderPreviews() {
   displays.forEach((entry) => {
-    const width = entry.previewWrap.clientWidth || 1;
-    const height = entry.previewWrap.clientHeight || 1;
-    renderLayer(entry.currentLayer, width, height, latestTime, latestAudio);
-    if (entry.crossfading) {
-      renderLayer(entry.crossfading.layer, width, height, latestTime, latestAudio);
+    const currentWidth = entry.currentPreviewWrap.clientWidth || 1;
+    const currentHeight = entry.currentPreviewWrap.clientHeight || 1;
+    renderLayer(entry.currentLayer, currentWidth, currentHeight, latestTime, latestAudio);
+
+    // クロスフェード中は pendingLayer が currentPreviewWrap 側に重ねて表示されているため
+    // そちらのサイズでレンダリングし、そうでなければ予約プレビュー欄自身のサイズを使う。
+    if (entry.crossfadingInstructionId) {
+      renderLayer(entry.pendingLayer, currentWidth, currentHeight, latestTime, latestAudio);
+    } else {
+      const pendingWidth = entry.pendingPreviewWrap.clientWidth || 1;
+      const pendingHeight = entry.pendingPreviewWrap.clientHeight || 1;
+      renderLayer(entry.pendingLayer, pendingWidth, pendingHeight, latestTime, latestAudio);
     }
   });
 

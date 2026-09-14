@@ -12,11 +12,12 @@
 
 ## シーン切替とクロスフェード
 
-[specs/006-scene-crossfade.md](../specs/006-scene-crossfade.md)参照。シーン選択・パレット設定・プリセット選択は、投影窓の「予約」状態(`pendingSceneIndex` / `pendingPalette`)を編集するだけで、表示への反映は「クロスフェード実行」ボタンを押すまで起きない。
+[specs/006-scene-crossfade.md](../specs/006-scene-crossfade.md)参照。シーン選択・パレット設定・プリセット選択は、投影窓の「予約」レイヤー(`DisplayEntry.pendingLayer`)を編集するだけで、表示への反映は「クロスフェード実行」ボタンを押すまで起きない。
 
 - **[layer.ts](layer.ts)** — `Layer`(1シーン分のレンダリング一式: シーンインスタンス・2D/WebGL用canvas2枚・専用の`THREE.WebGLRenderer`)を生成・リサイズ・描画・破棄するための共通モジュール。`createLayer()` は毎回 `sceneFactories` から新規にシーンインスタンスを生成する。**シーン切替(クロスフェードの有無を問わず)は常に新しいレイヤーを生成する設計**であり、同じシーンに戻ってきても新しいインスタンスになる。したがってFeedback Loopのような蓄積系シーンの状態は、シーンを切り替えるたびにリセットされる(意図した割り切り。理由はthree.jsの`WebGLRenderTarget`が特定の`WebGLRenderer`に紐づくため、旧シーン用と新シーン用で別々のcanvas/rendererを使うクロスフェードと、「シーンごとに状態を保持し続ける」設計は両立しない)。
 - **[crossfade.ts](crossfade.ts)** — `startCrossfade()`。新レイヤーを旧レイヤーに重ねてDOMに追加し、CSSの `opacity: 0 → 1` トランジションで見た目のブレンドをブラウザのコンポジタに任せる(自前のピクセル合成は行わない)。トランジション中は旧・新レイヤー両方を毎フレームレンダリングし続け、完了後に旧レイヤーを破棄する。control.ts・display.tsの両方から呼ばれる。
 - クロスフェード実行時、`crossfadeByWindow[windowId]` に `{ id, toSceneName, toPalette, durationMs }` をセットして配信する。`id` は発生ごとに一意の値で、投影窓側はこの `id` が前回と変わったときだけ新しいクロスフェードを開始する(同じ内容を毎tick送り続けても二重に開始しないようにするため)。
+- 操作UIの各投影窓行は `currentLayer`(現在)と `pendingLayer`(次への予約)を常時両方保持・レンダリングし、「現在」「次へ」のプレビューを並べて表示する。`pendingLayer` はクロスフェード実行時にそのまま遷移先レイヤーとして使われ(予約プレビュー用とクロスフェードのtoレイヤーを同一インスタンスに統合)、実行と同時に同じ内容の新しい `pendingLayer` が用意される(「次へ」欄が空白にならないようにするため)。この設計により、操作UI側は常時2レイヤー分のレンダリングコストがかかる(投影窓側は変わらず、実際のクロスフェード中だけ2レイヤーになる)。
 
 ## 主要ファイル
 

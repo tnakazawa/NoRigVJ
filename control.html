@@ -44,6 +44,21 @@
         border-radius: 6px;
         padding: 8px;
       }
+      .preview-group {
+        display: flex;
+        gap: 8px;
+        flex: 0 0 auto;
+      }
+      .preview-slot {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .preview-slot-label {
+        font-size: 11px;
+        opacity: 0.6;
+        text-align: center;
+      }
       .display-preview {
         position: relative;
         width: 220px;
@@ -52,6 +67,9 @@
         flex: 0 0 auto;
         border-radius: 4px;
         overflow: hidden;
+      }
+      .display-preview.pending-preview {
+        width: 140px;
       }
       .display-preview canvas {
         position: absolute;
