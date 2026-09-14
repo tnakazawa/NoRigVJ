@@ -236,6 +236,11 @@ function createDisplayRow(label: number) {
     const opt = document.createElement("option");
     opt.value = String(i);
     opt.textContent = preset.name;
+    // main/subの2色をグラデーションなし(hard stop)で塗り分け、選ばずとも配色が一目でわかるようにする
+    opt.style.background = `linear-gradient(90deg, ${preset.palette.main} 50%, ${preset.palette.sub} 50%)`;
+    // 明るい配色でも暗い配色でも文字が読めるよう、白文字+黒縁取りにする
+    opt.style.color = "#fff";
+    opt.style.textShadow = "0 0 2px #000, 0 0 4px #000";
     paletteSelectEl.appendChild(opt);
   });
   const customOption = document.createElement("option");
