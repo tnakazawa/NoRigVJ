@@ -16,6 +16,7 @@ const fragmentShader = `
   uniform float uVolume;
   uniform float uBass;
   uniform float uTreble;
+  uniform float uBeatPulse;
   uniform float uAspect;
   uniform vec3 uMainColor;
   uniform vec3 uSubColor;
@@ -49,7 +50,8 @@ const fragmentShader = `
     // 音量が高いと中心が白飛びしうる(はみ出てよい旨・敏感さ優先の指示のため許容)
     // 発光色はメイン⇔サブの2色間を時間でゆっくり往復させる(色相が回り続ける表現はやめている)
     float d = length(centered);
-    float glow = smoothstep(0.25 * 1.25 * 2.0, 0.0, d) * (0.01 + volume * 0.05 * 1.75 * 1.5);
+    // ビート発生時、beatPulseの減衰に合わせて発光を一瞬強める
+    float glow = smoothstep(0.25 * 1.25 * 2.0, 0.0, d) * (0.01 + volume * 0.05 * 1.75 * 1.5 + uBeatPulse * 0.08);
     float mixAmount = 0.5 + 0.5 * sin(uTime * 0.5);
     vec3 seed = glow * mix(uMainColor, uSubColor, mixAmount);
 
@@ -93,6 +95,7 @@ const createFeedbackLoopScene: SceneFactory = () => {
           uVolume: { value: 0 },
           uBass: { value: 0 },
           uTreble: { value: 0 },
+          uBeatPulse: { value: 0 },
           uAspect: { value: 1 },
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
@@ -112,6 +115,7 @@ const createFeedbackLoopScene: SceneFactory = () => {
       material.uniforms.uVolume.value = ctx.audio.volume;
       material.uniforms.uBass.value = ctx.audio.bass;
       material.uniforms.uTreble.value = ctx.audio.treble;
+      material.uniforms.uBeatPulse.value = ctx.audio.beatPulse;
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));

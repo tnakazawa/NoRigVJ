@@ -18,12 +18,24 @@ const createNoiseFieldScene: SceneFactory = () => {
       // パーティクルサイズは画面サイズ(小さい方の辺)を基準にスケールする
       const baseSize = Math.min(width, height) * 0.006;
       const count = 150 + Math.floor(treble * 300);
+      const cx = width / 2;
+      const cy = height / 2;
       for (let i = 0; i < count; i++) {
         // 動きをさらに遅くしている
         const a = i * 12.9898 + time * 0.7;
-        const x = (Math.sin(a) * 0.5 + 0.5) * width;
-        const y = (Math.cos(a * 1.3) * 0.5 + 0.5) * height;
-        const r = baseSize * (1 + volume * 3);
+        let x = (Math.sin(a) * 0.5 + 0.5) * width;
+        let y = (Math.cos(a * 1.3) * 0.5 + 0.5) * height;
+
+        // ビート発生時、中心から放射方向に一瞬押し出して拡散させる
+        if (audio.beatPulse > 0.01) {
+          const dx = x - cx, dy = y - cy;
+          const len = Math.hypot(dx, dy) || 1;
+          const push = audio.beatPulse * Math.min(width, height) * 0.15;
+          x += (dx / len) * push;
+          y += (dy / len) * push;
+        }
+
+        const r = baseSize * (1 + volume * 3) * (1 + audio.beatPulse * 0.8);
         // パーティクルごとに固定の疑似乱数(iベース)でメイン/サブ間を補間する。
         // time を使わないことで、色自体が時間で変化しないようにしている。
         const t = Math.sin(i * 7.3) * 0.5 + 0.5;

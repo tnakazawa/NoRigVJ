@@ -54,7 +54,7 @@ export function createLayer(sceneIndex: number, palette: Palette): Layer {
       width: 1,
       height: 1,
       time: 0,
-      audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
+      audio: { volume: 0, bass: 0, mid: 0, treble: 0, beatPulse: 0, bpm: 0 },
       palette,
     });
   }

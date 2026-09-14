@@ -21,7 +21,7 @@
 
 ## 主要ファイル
 
-- [audio.ts](audio.ts) — `AudioAnalyzer` クラス。`fftSize: 512`、`smoothingTimeConstant: 0.8` で周波数データを取得し、周波数ビンを低域0〜6%(〜1.3kHz)/中域6〜25%(〜1.3〜5.5kHz)/高域25〜100%(〜5.5〜22kHz)に分割して `volume/bass/mid/treble`(各0-1)を算出する。境界は音楽・声のエネルギーが低〜中域に集中する実態に合わせて調整済み(高域寄りに広く取りすぎると `treble` がほぼ反応しなくなる)。
+- [audio.ts](audio.ts) — `AudioAnalyzer` クラス。`fftSize: 512`、`smoothingTimeConstant: 0.8` で周波数データを取得し、周波数ビンを低域0〜6%(〜1.3kHz)/中域6〜25%(〜1.3〜5.5kHz)/高域25〜100%(〜5.5〜22kHz)に分割して `volume/bass/mid/treble`(各0-1)を算出する。境界は音楽・声のエネルギーが低〜中域に集中する実態に合わせて調整済み(高域寄りに広く取りすぎると `treble` がほぼ反応しなくなる)。あわせて `bass` の急上昇からビートを検出し、`AudioLevels.beatPulse`(ビート時1→指数減衰)・`AudioLevels.bpm`(直近8拍の移動平均、3秒間未検出で0)を算出する([specs/007-bpm-beat-sync.md](../specs/007-bpm-beat-sync.md)参照)。
 - [palettes.ts](palettes.ts) — カラーパレットのプリセット定義(`PALETTE_PRESETS`)とデフォルトパレット(`DEFAULT_PALETTE`)。シーン側の `supportsPalette` については [scenes/CLAUDE.md](scenes/CLAUDE.md) を参照。
 - [presets.ts](presets.ts) — 投影窓の「シーン名 + パレット」をユーザーが名前付きで保存する `ScenePreset` の型と `localStorage` 読み書き(`loadPresets` / `savePreset` / `deletePreset`)。シーンは `sceneIndex` ではなくシーン名で識別している(シーンファイルの追加・並び替えで既存プリセットが別のシーンを指す事故を避けるため)。保存ダイアログのデフォルト名は `${シーン名}-${メインカラー}-${サブカラー}`([control.ts](control.ts)側で組み立てる)。[specs/005-scene-presets.md](../specs/005-scene-presets.md)参照。
 - [tick-worker.ts](tick-worker.ts) — 音声解析・状態送信を駆動するtickをWorker側で刻む(理由は下記既知の注意点参照)。

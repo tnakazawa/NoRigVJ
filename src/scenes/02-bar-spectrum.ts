@@ -34,6 +34,12 @@ const createBarSpectrumScene: SceneFactory = () => {
         ctx.fillStyle = hsl(200 + i * 6 + time * 20, 85, 55);
         ctx.fillRect(i * barW, height - h, barW * 0.8, h);
       }
+
+      // ビート発生時、beatPulseの減衰に合わせて画面全体を一瞬白くフラッシュさせる
+      if (audio.beatPulse > 0.01) {
+        ctx.fillStyle = `rgba(255,255,255,${audio.beatPulse * 0.3})`;
+        ctx.fillRect(0, 0, width, height);
+      }
     },
   };
   return scene;
