@@ -23,7 +23,7 @@
 
 [specs/007-manual-trigger.md](../specs/007-manual-trigger.md)参照。以前試みたBPM自動検出は精度不足で撤回し、代わりにVJ本人がボタン/キーで発火するワンショット演出にした。
 
-- `SceneContextBase.triggers: [number, number, number]` がTrigger 1/2/3それぞれの発生状況(発生時1→指数減衰)を全シーンの `render()` に渡す。`Scene2D`/`SceneWebGL` の `triggerEffectNames?: TriggerEffectNames` に、対応する演出があるインデックスだけ名前を入れる(未対応は `undefined`)。シーンは0〜3個の任意個数だけ対応してよい。現時点の対応シーンはPulse Rings・Bar Spectrum・Noise Field・Feedback Loop・Wireframe Polyhedron・Kaleidoscope・Bloom Particles・Rainbow・Starfield Warp・Metaball Blob・Halftone Dots・Lissajous Linesの12個(各演出内容は [scenes/CLAUDE.md](scenes/CLAUDE.md) 参照)。
+- `SceneContextBase.triggers: [number, number, number]` がTrigger 1/2/3それぞれの発生状況(発生時1→指数減衰)を全シーンの `render()` に渡す。`Scene2D`/`SceneWebGL` の `triggerEffectNames?: TriggerEffectNames` に、対応する演出があるインデックスだけ名前を入れる(未対応は `undefined`)。シーンは0〜3個の任意個数だけ対応してよい。現時点の対応シーンは18シーン中16個(非対応はPlasma Lava・Grid Terrainのみ、各演出内容は [scenes/CLAUDE.md](scenes/CLAUDE.md) 参照)。
 - `VJState.trigger: { id, index } | null` で伝搬する。`id` はクロスフェードの `CrossfadeInstruction.id` と同じ考え方で、発生ごとに一意にし、投影窓側はこの `id` が変わったときだけ新規発生とみなす。実際の減衰値(`triggers` の3要素)は操作UI側・投影窓側それぞれが自分の内部状態(各トリガーを最後に検知した時刻)から計算する(`computeTriggers()`、control.ts/display.ts双方に同じ実装を持つ)。
 - パネルの「Trigger 1/2/3」ボタンは、表示中の投影窓のいずれかがそのトリガーに対応していなければ無効化する(`updateTriggerButtonStates()`)。
 

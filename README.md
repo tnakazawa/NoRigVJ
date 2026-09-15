@@ -38,6 +38,10 @@ npm run dev
 - **Metaball Blob** — 有機的にうねる一塊の球体。カラーパレット対応。
 - **Halftone Dots** — 格子状の円ドットが音声で拡縮する、印刷物のハーフトーン風グラフィック。カラーパレット対応。
 - **Lissajous Lines** — リサージュ曲線を描く発光ライン。唯一の線画表現。カラーパレット対応。
+- **Voronoi Cells** — 不規則なセル境界が浮かび上がるVoronoi(Worley noise)模様。カラーパレット対応。
+- **Instanced Cube Grid** — 格子状に並んだ3Dキューブが音声で上下する、都市のビル群のような俯瞰構図。カラーパレット対応。
+- **Matrix Rain** — デジタル文字風のブロックが列ごとに上から下へ流れ落ちるサイバー表現。カラーパレット対応。
+- **DNA Helix** — 二重螺旋状に回転する球体列と塩基対の連結線。カラーパレット対応。
 
 ## カラーパレット
 
@@ -53,7 +57,7 @@ npm run dev
 
 ## 手動トリガー演出
 
-VJ本人がここぞという瞬間にボタン/キーで発火する、ワンショットの演出です(以前試みたBPM自動検出は精度不足で撤回、上記参照)。「Trigger 1」「Trigger 2」「Trigger 3」の3種類があり、押すと全投影窓(操作UIのプレビュー含む)が同時に反応します。どの演出を持つかはシーンごとに異なり、対応する演出が無いシーンを表示中はボタンが無効化されます(現時点で対応しているのはPulse Rings・Bar Spectrum・Noise Field・Feedback Loop・Wireframe Polyhedron・Kaleidoscope・Bloom Particles・Rainbow・Starfield Warp・Metaball Blob・Halftone Dots・Lissajous Linesの12シーン)。
+VJ本人がここぞという瞬間にボタン/キーで発火する、ワンショットの演出です(以前試みたBPM自動検出は精度不足で撤回、上記参照)。「Trigger 1」「Trigger 2」「Trigger 3」の3種類があり、押すと全投影窓(操作UIのプレビュー含む)が同時に反応します。どの演出を持つかはシーンごとに異なり、対応する演出が無いシーンを表示中はボタンが無効化されます(現時点で対応しているのはPulse Rings・Bar Spectrum・Noise Field・Feedback Loop・Wireframe Polyhedron・Kaleidoscope・Bloom Particles・Rainbow・Starfield Warp・Metaball Blob・Halftone Dots・Lissajous Lines・Voronoi Cells・Instanced Cube Grid・Matrix Rain・DNA Helixの16シーン)。
 
 - **Pulse Rings**: Trigger 1 = Ring Burst(リング新規生成して弾ける)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = Radius Kick(全リングを一瞬拡大)
 - **Bar Spectrum**: Trigger 1 = Height Kick(全バーを一瞬伸ばす)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = White Flash(一瞬白く)
@@ -67,6 +71,10 @@ VJ本人がここぞという瞬間にボタン/キーで発火する、ワン�
 - **Metaball Blob**: Trigger 1 = Spike(一瞬トゲトゲに変形)/ Trigger 2 = Smooth(一瞬真球に戻す)
 - **Halftone Dots**: Trigger 1 = Invert(ドット/背景の配色を一瞬反転)/ Trigger 2 = Zoom(ドットの密度を一瞬変化)/ Trigger 3 = Flash(一瞬白く)
 - **Lissajous Lines**: Trigger 1 = Ratio Kick(周波数比を一瞬変えて模様を歪ませる)/ Trigger 2 = Flash(一瞬白く発光)
+- **Voronoi Cells**: Trigger 1 = Shuffle(格子密度を一瞬変えて模様を組み替える)/ Trigger 2 = Flash(一瞬白く)
+- **Instanced Cube Grid**: Trigger 1 = Height Kick(全キューブを一瞬持ち上げる)/ Trigger 2 = Wave Pulse(中心からの波紋を一瞬強める)/ Trigger 3 = White Flash(一瞬白く)
+- **Matrix Rain**: Trigger 1 = Speed Burst(一瞬流れる速度をブースト)/ Trigger 2 = Flash(一瞬白く)
+- **DNA Helix**: Trigger 1 = Spin Kick(一瞬回転速度をブースト)/ Trigger 2 = Radius Pulse(一瞬螺旋を膨らませる)/ Trigger 3 = Flash(一瞬白く)
 
 ## 操作方法(操作UI)
 
