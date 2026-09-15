@@ -8,6 +8,9 @@ export default defineConfig(({ command }) => ({
   build: {
     rollupOptions: {
       input: {
+        // GitHub Pagesのルート(https://tnakazawa.github.io/NoRigVJ/)へ直接アクセスされた際に
+        // control.htmlへ誘導するためのリダイレクト用ページ
+        index: fileURLToPath(new URL("./index.html", import.meta.url)),
         control: fileURLToPath(new URL("./control.html", import.meta.url)),
         display: fileURLToPath(new URL("./display.html", import.meta.url)),
       },

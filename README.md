@@ -4,6 +4,12 @@ An interactive VJ (Visual Jockey) application that runs in the browser.
 It analyzes microphone input in real time and generates visuals from it.
 No special audio interface or MIDI gear required.
 
+## Live demo
+
+https://tnakazawa.github.io/NoRigVJ/
+
+Hosted on GitHub Pages, built and deployed automatically from the `main` branch via [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+
 ## Setup
 
 ```bash
