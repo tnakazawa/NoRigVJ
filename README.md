@@ -42,6 +42,20 @@ npm run dev
 - **Instanced Cube Grid** — 格子状に並んだ3Dキューブが音声で上下する、都市のビル群のような俯瞰構図。カラーパレット対応。
 - **Matrix Rain** — デジタル文字風のブロックが列ごとに上から下へ流れ落ちるサイバー表現。カラーパレット対応。
 - **DNA Helix** — 二重螺旋状に回転する球体列と塩基対の連結線。カラーパレット対応。
+- **Fireworks** — 複数発の花火が周期的に爆発し、重力で放物線を描いて消えていく。カラーパレット対応。
+- **Fresnel Glass Sphere** — 輪郭がフレネル効果で光る半透明の球体。カラーパレット対応。
+- **Radial Rays** — 中心から放射する光線が明滅する。カラーパレット対応。
+- **Aurora** — カーテン状に揺らめくオーロラ光。カラーパレット対応。
+- **Spiral Galaxy** — 渦を巻くパーティクル銀河。カラーパレット対応。
+- **Flocking Boids** — 鳥や魚の群れのように自律的に動くパーティクル群。カラーパレット対応。
+- **Bouncing Balls** — 簡易物理でバウンドするボール群。カラーパレット対応。
+- **Chladni Patterns** — 振動する板の上で砂が集まるChladni図形。カラーパレット対応。
+- **Sacred Geometry Mandala** — 重なる円が「生命の花」状の幾何学模様を作る。カラーパレット対応。
+- **Lightning Arcs** — 稲妻状のジグザグ線が明滅する。カラーパレット対応。
+- **Glitch Blocks** — 画面がブロック単位でデジタル的に乱れるグリッチノイズ。カラーパレット対応。
+- **Radial Bar Spectrum** — 円形に並んだバーが音声で放射方向に伸縮する、レコード盤スペクトラムアナライザー風。カラーパレット対応。
+- **Origami Folding Planes** — 平面が折り紙のアコーディオン折りのように開閉する。カラーパレット対応。
+- **Ribbon Wave** — チューブ状のリボンが波打つようにうねる。カラーパレット対応。
 
 ## カラーパレット
 
@@ -57,7 +71,7 @@ npm run dev
 
 ## 手動トリガー演出
 
-VJ本人がここぞという瞬間にボタン/キーで発火する、ワンショットの演出です(以前試みたBPM自動検出は精度不足で撤回、上記参照)。「Trigger 1」「Trigger 2」「Trigger 3」の3種類があり、押すと全投影窓(操作UIのプレビュー含む)が同時に反応します。どの演出を持つかはシーンごとに異なり、対応する演出が無いシーンを表示中はボタンが無効化されます(現時点で対応しているのはPulse Rings・Bar Spectrum・Noise Field・Feedback Loop・Wireframe Polyhedron・Kaleidoscope・Bloom Particles・Rainbow・Starfield Warp・Metaball Blob・Halftone Dots・Lissajous Lines・Voronoi Cells・Instanced Cube Grid・Matrix Rain・DNA Helixの16シーン)。
+VJ本人がここぞという瞬間にボタン/キーで発火する、ワンショットの演出です(以前試みたBPM自動検出は精度不足で撤回、上記参照)。「Trigger 1」「Trigger 2」「Trigger 3」の3種類があり、押すと全投影窓(操作UIのプレビュー含む)が同時に反応します。どの演出を持つかはシーンごとに異なり、対応する演出が無いシーンを表示中はボタンが無効化されます(全32シーン中30シーンが対応、非対応はPlasma Lava・Grid Terrainの2つのみ)。
 
 - **Pulse Rings**: Trigger 1 = Ring Burst(リング新規生成して弾ける)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = Radius Kick(全リングを一瞬拡大)
 - **Bar Spectrum**: Trigger 1 = Height Kick(全バーを一瞬伸ばす)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = White Flash(一瞬白く)
@@ -75,6 +89,20 @@ VJ本人がここぞという瞬間にボタン/キーで発火する、ワン�
 - **Instanced Cube Grid**: Trigger 1 = Height Kick(全キューブを一瞬持ち上げる)/ Trigger 2 = Wave Pulse(中心からの波紋を一瞬強める)/ Trigger 3 = White Flash(一瞬白く)
 - **Matrix Rain**: Trigger 1 = Speed Burst(一瞬流れる速度をブースト)/ Trigger 2 = Flash(一瞬白く)
 - **DNA Helix**: Trigger 1 = Spin Kick(一瞬回転速度をブースト)/ Trigger 2 = Radius Pulse(一瞬螺旋を膨らませる)/ Trigger 3 = Flash(一瞬白く)
+- **Fireworks**: Trigger 1 = Launch Burst(一瞬爆発の勢いをブースト)/ Trigger 2 = Flash(一瞬白く)
+- **Fresnel Glass Sphere**: Trigger 1 = Glow Burst(一瞬輪郭の発光を強める)/ Trigger 2 = Core Flash(一瞬中心部も白く発光)
+- **Radial Rays**: Trigger 1 = Burst(一瞬発光範囲を広げる)/ Trigger 2 = Spin(一瞬回転速度をブースト)
+- **Aurora**: Trigger 1 = Brighten(一瞬発光を強める)/ Trigger 2 = Ripple(一瞬波を激しく揺らす)
+- **Spiral Galaxy**: Trigger 1 = Spin Burst(一瞬回転速度をブースト)/ Trigger 2 = Flash(一瞬白く)
+- **Flocking Boids**: Trigger 1 = Scatter(一瞬分離力を強め群れを散らす)/ Trigger 2 = Flash(一瞬白く)
+- **Bouncing Balls**: Trigger 1 = Bounce Burst(全ボールに上向きの勢いを与える)/ Trigger 2 = Flash(一瞬白く)
+- **Chladni Patterns**: Trigger 1 = Mode Shift(一瞬振動モードを変え模様を組み替える)/ Trigger 2 = Flash(一瞬白く)
+- **Sacred Geometry Mandala**: Trigger 1 = Bloom(一瞬花が開くように広がる)/ Trigger 2 = Spin Burst(一瞬回転速度をブースト)/ Trigger 3 = Flash(一瞬白く)
+- **Lightning Arcs**: Trigger 1 = Strike(全ての稲妻を強制発生させる)/ Trigger 2 = Flash(一瞬白く)
+- **Glitch Blocks**: Trigger 1 = Corrupt(一瞬グリッチを最大化)/ Trigger 2 = Flash(一瞬白く)
+- **Radial Bar Spectrum**: Trigger 1 = Height Kick(全バーを一瞬伸ばす)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = White Flash(一瞬白く)
+- **Origami Folding Planes**: Trigger 1 = Fold(一瞬深く折りたたむ)/ Trigger 2 = Flatten(一瞬平らに開く)/ Trigger 3 = Flash(一瞬白く)
+- **Ribbon Wave**: Trigger 1 = Wave Kick(一瞬うねりの振幅を強める)/ Trigger 2 = Flash(一瞬白く)
 
 ## 操作方法(操作UI)
 
