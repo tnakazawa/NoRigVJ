@@ -329,7 +329,9 @@ function addDisplay() {
   const id = crypto.randomUUID();
   displayCounter += 1;
 
-  const opened = window.open(`/display.html?windowId=${id}`, id, "width=1280,height=720");
+  // GitHub Pages等サブパス配信では絶対パス"/display.html"が壊れるため、
+  // Viteのbase設定(import.meta.env.BASE_URL)を基準にする
+  const opened = window.open(`${import.meta.env.BASE_URL}display.html?windowId=${id}`, id, "width=1280,height=720");
   if (!opened) {
     console.error("Failed to open display window (popup may have been blocked)");
     return;

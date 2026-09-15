@@ -1,138 +1,138 @@
 # NoRigVJ
 
-ブラウザで動作するインタラクティブなVJ(Visual Jockey)アプリケーション。
-マイク入力の音声を解析し、リアルタイムでビジュアルを生成します。
-特別なオーディオインターフェースやMIDI機材は不要です。
+An interactive VJ (Visual Jockey) application that runs in the browser.
+It analyzes microphone input in real time and generates visuals from it.
+No special audio interface or MIDI gear required.
 
-## セットアップ
+## Setup
 
 ```bash
 npm install
 npm run dev
 ```
 
-表示されたURLの `/control.html` を開いてください(例: http://localhost:5173/control.html)。
+Open `/control.html` at the URL shown (e.g. http://localhost:5173/control.html).
 
-## 構成
+## Structure
 
-- **操作UI(control.html)** — マイク解析(全投影窓共通)・強度調整に加え、投影窓ごとのシーン選択・カラーパレット設定を行う画面。投影窓ごとにプレビュー付き。UI表記は英語です。
-- **投影窓(display.html)** — 操作UIの「Add Display」ボタンから開く、ビジュアルのみのフルスクリーン画面。台数に制限はなく、それぞれ個別にシーン・配色を選べます。外部ディスプレイ/プロジェクタに表示します。
+- **Control UI (control.html)** — The screen for microphone analysis (shared across all displays), intensity adjustment, and per-display scene/color palette selection. Each display row has its own preview. The UI is in English.
+- **Display window (display.html)** — A visuals-only fullscreen window opened via the "Add Display" button in the control UI. There's no limit on how many you can open, and each one can have its own scene and colors. Meant to be shown on an external monitor or projector.
 
-操作UIと各投影窓はブラウザの `BroadcastChannel` API で同期しており、同一PC・同一オリジン内で完結します。
+The control UI and each display window stay in sync via the browser's `BroadcastChannel` API, all within the same PC and same origin.
 
-## シーン
+## Scenes
 
-全シーンWebGL(three.js)で描画します。1シーン1ファイルで `src/scenes/` 配下に実装されており、ファイルを追加するだけで自動的にシーン選択の対象になります(以前はCanvas 2D APIとの併存構成でしたが、見た目・パフォーマンスの両面で優位なWebGLに統一しました)。
+Every scene renders with WebGL (three.js). Each scene is one file under `src/scenes/`, and simply adding a file makes it automatically available in the scene picker (an earlier version mixed WebGL with Canvas 2D, but everything was unified onto WebGL for both looks and performance).
 
-- **Pulse Rings** — 音量に反応する同心円(トーラス)。カラーパレット対応。
-- **Bar Spectrum** — 低域でうねる3Dバー。バーの位置に応じてmain→subへ配色。カラーパレット対応。
-- **Noise Field** — 高域で散らばるパーティクル群。カラーパレット対応。
-- **Feedback Loop** — 前フレームの描画を歪ませながら重ねるフィードバックループ表現。カラーパレット対応。
-- **Plasma Lava** — 複数のsin波を合成した古典的プラズマ/溶岩模様。カラーパレット対応。
-- **Wireframe Polyhedron** — 回転する複数のワイヤーフレーム多面体。奥行きのある構図。カラーパレット対応。
-- **Kaleidoscope** — 極座標の角度分割による万華鏡状の反復模様。カラーパレット対応。
-- **Grid Terrain** — 音声で波打つワイヤーフレーム地形。奥行きのある見下ろし構図。カラーパレット対応。
-- **Bloom Particles** — 発光(Bloom)する加算合成パーティクル群。カラーパレット対応。
-- **Rainbow** — 画面いっぱいの虹色の平行線が上から下へ流れ続ける表現。虹の配色自体が特徴のため、カラーパレット非対応。
-- **Starfield Warp** — 無数の星がカメラ手前へ流れ続けるワープ航法風の表現。カラーパレット対応。
-- **Metaball Blob** — 有機的にうねる一塊の球体。カラーパレット対応。
-- **Halftone Dots** — 格子状の円ドットが音声で拡縮する、印刷物のハーフトーン風グラフィック。カラーパレット対応。
-- **Lissajous Lines** — リサージュ曲線を描く発光ライン。唯一の線画表現。カラーパレット対応。
-- **Voronoi Cells** — 不規則なセル境界が浮かび上がるVoronoi(Worley noise)模様。カラーパレット対応。
-- **Instanced Cube Grid** — 格子状に並んだ3Dキューブが音声で上下する、都市のビル群のような俯瞰構図。カラーパレット対応。
-- **Matrix Rain** — デジタル文字風のブロックが列ごとに上から下へ流れ落ちるサイバー表現。カラーパレット対応。
-- **DNA Helix** — 二重螺旋状に回転する球体列と塩基対の連結線。カラーパレット対応。
-- **Fireworks** — 複数発の花火が周期的に爆発し、重力で放物線を描いて消えていく。カラーパレット対応。
-- **Fresnel Glass Sphere** — 輪郭がフレネル効果で光る半透明の球体。カラーパレット対応。
-- **Radial Rays** — 中心から放射する光線が明滅する。カラーパレット対応。
-- **Aurora** — カーテン状に揺らめくオーロラ光。カラーパレット対応。
-- **Spiral Galaxy** — 渦を巻くパーティクル銀河。カラーパレット対応。
-- **Flocking Boids** — 鳥や魚の群れのように自律的に動くパーティクル群。カラーパレット対応。
-- **Bouncing Balls** — 簡易物理でバウンドするボール群。カラーパレット対応。
-- **Chladni Patterns** — 振動する板の上で砂が集まるChladni図形。カラーパレット対応。
-- **Sacred Geometry Mandala** — 重なる円が「生命の花」状の幾何学模様を作る。カラーパレット対応。
-- **Lightning Arcs** — 稲妻状のジグザグ線が明滅する。カラーパレット対応。
-- **Glitch Blocks** — 画面がブロック単位でデジタル的に乱れるグリッチノイズ。カラーパレット対応。
-- **Radial Bar Spectrum** — 円形に並んだバーが音声で放射方向に伸縮する、レコード盤スペクトラムアナライザー風。カラーパレット対応。
-- **Origami Folding Planes** — 平面が折り紙のアコーディオン折りのように開閉する。カラーパレット対応。
-- **Ribbon Wave** — チューブ状のリボンが波打つようにうねる。カラーパレット対応。
+- **Pulse Rings** — Concentric rings (tori) that react to volume. Supports the color palette.
+- **Bar Spectrum** — 3D bars that ripple with the low end, colored main→sub by bar position. Supports the color palette.
+- **Noise Field** — A particle cloud that scatters with the high end. Supports the color palette.
+- **Feedback Loop** — A feedback-loop effect that layers and distorts the previous frame's render. Supports the color palette.
+- **Plasma Lava** — A classic plasma/lava pattern made of overlapping sine waves. Supports the color palette.
+- **Wireframe Polyhedron** — Several rotating wireframe polyhedra in a composition with depth. Supports the color palette.
+- **Kaleidoscope** — A kaleidoscope-like repeating pattern from angular polar-coordinate division. Supports the color palette.
+- **Grid Terrain** — A wireframe terrain that ripples with the audio, in an overhead composition with depth. Supports the color palette.
+- **Bloom Particles** — An additively-blended particle cloud with bloom (glow). Supports the color palette.
+- **Rainbow** — Rainbow-colored parallel lines filling the screen, continuously scrolling from top to bottom. Does not support the color palette, since the rainbow coloring itself is the point.
+- **Starfield Warp** — Countless stars streaming toward the camera, warp-drive style. Supports the color palette.
+- **Metaball Blob** — A single organically writhing blob-like sphere. Supports the color palette.
+- **Halftone Dots** — A grid of circular dots that grow and shrink with the audio, print-halftone style. Supports the color palette.
+- **Lissajous Lines** — A glowing line tracing a Lissajous curve. The only line-art scene. Supports the color palette.
+- **Voronoi Cells** — A Voronoi (Worley noise) pattern with irregular cell boundaries. Supports the color palette.
+- **Instanced Cube Grid** — A grid of 3D cubes that bob up and down with the audio, viewed from above like a city skyline. Supports the color palette.
+- **Matrix Rain** — Digital-code-style blocks streaming downward column by column, cyberpunk style. Supports the color palette.
+- **DNA Helix** — A double helix of rotating spheres with connecting base-pair rungs. Supports the color palette.
+- **Fireworks** — Multiple shells burst on a cycle, arc under gravity, and fade out. Supports the color palette.
+- **Fresnel Glass Sphere** — A translucent sphere whose rim glows via a fresnel effect. Supports the color palette.
+- **Radial Rays** — Rays radiating from the center, flickering. Supports the color palette.
+- **Aurora** — Aurora-like light curtains billowing across the screen. Supports the color palette.
+- **Spiral Galaxy** — A particle galaxy with a spiral swirl. Supports the color palette.
+- **Flocking Boids** — A particle swarm that moves autonomously like a flock of birds or school of fish. Supports the color palette.
+- **Bouncing Balls** — A group of balls bouncing under simple physics. Supports the color palette.
+- **Chladni Patterns** — Chladni figures, where sand gathers on a vibrating plate. Supports the color palette.
+- **Sacred Geometry Mandala** — Overlapping rings forming a "Flower of Life" style geometric pattern. Supports the color palette.
+- **Lightning Arcs** — Jagged lightning-bolt lines flickering. Supports the color palette.
+- **Glitch Blocks** — Digital glitch noise where the screen breaks up block by block. Supports the color palette.
+- **Radial Bar Spectrum** — Bars arranged in a circle that stretch radially with the audio, like a vinyl-record spectrum analyzer. Supports the color palette.
+- **Origami Folding Planes** — A plane that opens and closes like an accordion origami fold. Supports the color palette.
+- **Ribbon Wave** — A tube-shaped ribbon undulating in waves. Supports the color palette.
 
-## カラーパレット
+## Color palette
 
-投影窓ごとに、メイン/サブの2色からなるカラーパレットを設定できます。32種類のプリセットから選ぶか、カラーピッカーで自由に配色できます。プリセット選択のドロップダウンは各項目の左にmain/subの色見本が並んでおり、選ばなくても一覧から色味を確認できます。パレット非対応のシーン(Rainbow)を選んでいる間は、パレットUIが無効化されます。
+Each display can have its own main/sub two-color palette. Choose from 32 presets, or pick freely with the color pickers. The preset dropdown shows a main/sub color swatch to the left of each entry, so you can preview the colors without selecting them. While a palette-unsupported scene (Rainbow) is selected, the palette UI is disabled.
 
-## シーンプリセット
+## Scene presets
 
-投影窓ごとの「シーン + カラーパレット」の組み合わせを名前付きで保存できます。保存したプリセットはどの投影窓からも呼び出せ、ブラウザの `localStorage` に保存されるためページを再読み込みしても残ります。強度は全投影窓共通の値のためプリセットには含まれません。保存時の名前入力欄には `{シーン名}-{メインカラー}-{サブカラー}`(例: `Pulse Rings-#ff00ff-#00ffff`)がデフォルト値として入っており、そのまま使うことも上書きすることもできます。
+You can save a per-display "scene + color palette" combination under a name. Saved presets can be recalled from any display and are stored in the browser's `localStorage`, so they survive a page reload. Intensity is a value shared across all displays, so it isn't included in presets. The name field defaults to `{scene name}-{main color}-{sub color}` (e.g. `Pulse Rings-#ff00ff-#00ffff`) when saving, which you can use as-is or overwrite.
 
-## シーン切替とクロスフェード
+## Scene switching and crossfade
 
-投影窓ごとのシーン選択・パレット設定・プリセット選択は、選んだだけでは表示に反映されません。これらはすべて「次に切り替える内容(予約)」を編集するもので、実際の切り替えは「Crossfade」ボタンを押すことで初めて起こります。現在の表示から予約した内容へ、指定時間(パネルの「Crossfade duration」スライダーで調整、全投影窓共通)かけて滑らかに遷移します。予約内容が現在の表示と同じ場合、ボタンは無効化されます。各投影窓行には「Current」のプレビューの隣に「Next」のプレビューも常時表示されるので、実行前に予約内容の見た目を確認できます。
+Per-display scene selection, palette settings, and preset selection don't take effect just by choosing them — they all edit the "pending" content (what to switch to next), and the actual switch only happens when you press the "Crossfade" button. The display transitions smoothly from what's currently shown to the pending content over a set duration (adjustable via the panel's "Crossfade duration" slider, shared across all displays). The button is disabled when the pending content matches what's currently shown. Each display row always shows a "Next" preview next to the "Current" one, so you can check what the pending content looks like before committing.
 
-## 手動トリガー演出
+## Manual trigger effects
 
-VJ本人がここぞという瞬間にボタン/キーで発火する、ワンショットの演出です(以前試みたBPM自動検出は精度不足で撤回、上記参照)。「Trigger 1」「Trigger 2」「Trigger 3」の3種類があり、押すと全投影窓(操作UIのプレビュー含む)が同時に反応します。どの演出を持つかはシーンごとに異なり、対応する演出が無いシーンを表示中はボタンが無効化されます(全32シーン中30シーンが対応、非対応はPlasma Lava・Grid Terrainの2つのみ)。
+One-shot effects the VJ fires with a button or key at just the right moment (an earlier attempt at automatic BPM detection was abandoned for insufficient accuracy — see below). There are three, "Trigger 1", "Trigger 2", and "Trigger 3", and pressing one makes every display (including the control UI's previews) react simultaneously. Which effects a scene has varies by scene, and the button is disabled while a scene with no matching effect is shown (30 of the 32 scenes support triggers; only Plasma Lava and Grid Terrain don't).
 
-- **Pulse Rings**: Trigger 1 = Ring Burst(リング新規生成して弾ける)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = Radius Kick(全リングを一瞬拡大)
-- **Bar Spectrum**: Trigger 1 = Height Kick(全バーを一瞬伸ばす)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = White Flash(一瞬白く)
-- **Noise Field**: Trigger 1 = Radial Push(パーティクルを放射状に押し出す)/ Trigger 2 = Freeze(一瞬静止)/ Trigger 3 = Color Flash(一瞬白く)
-- **Feedback Loop**: Trigger 1 = Zoom Punch(渦の歪みを一瞬強める)/ Trigger 2 = Flash(中心の発光を一瞬強める)/ Trigger 3 = Invert(配色を一瞬反転)
-- **Wireframe Polyhedron**: Trigger 1 = Spin Kick(回転速度を一瞬ブースト)/ Trigger 2 = Scale Pulse(全多面体を一瞬拡大)/ Trigger 3 = Flash(一瞬白く)
-- **Kaleidoscope**: Trigger 1 = Segment Kick(分割数を一瞬増やす)/ Trigger 2 = Spin Burst(回転速度を一瞬ブースト)/ Trigger 3 = Flash(一瞬明るく)
-- **Bloom Particles**: Trigger 1 = Radial Burst(パーティクルを放射状に押し出す)/ Trigger 2 = Bloom Flash(発光を一瞬強める)/ Trigger 3 = Freeze(一瞬静止)
-- **Rainbow**: Trigger 1 = Monochrome(一瞬彩度を落としグレースケールに)/ Trigger 2 = Pale(一瞬淡く白へ)/ Trigger 3 = Darken(一瞬濃く黒へ)
-- **Starfield Warp**: Trigger 1 = Warp Speed(一瞬速度を大幅ブースト)/ Trigger 2 = Flash(星を一瞬大きく白く)
-- **Metaball Blob**: Trigger 1 = Spike(一瞬トゲトゲに変形)/ Trigger 2 = Smooth(一瞬真球に戻す)
-- **Halftone Dots**: Trigger 1 = Invert(ドット/背景の配色を一瞬反転)/ Trigger 2 = Zoom(ドットの密度を一瞬変化)/ Trigger 3 = Flash(一瞬白く)
-- **Lissajous Lines**: Trigger 1 = Ratio Kick(周波数比を一瞬変えて模様を歪ませる)/ Trigger 2 = Flash(一瞬白く発光)
-- **Voronoi Cells**: Trigger 1 = Shuffle(格子密度を一瞬変えて模様を組み替える)/ Trigger 2 = Flash(一瞬白く)
-- **Instanced Cube Grid**: Trigger 1 = Height Kick(全キューブを一瞬持ち上げる)/ Trigger 2 = Wave Pulse(中心からの波紋を一瞬強める)/ Trigger 3 = White Flash(一瞬白く)
-- **Matrix Rain**: Trigger 1 = Speed Burst(一瞬流れる速度をブースト)/ Trigger 2 = Flash(一瞬白く)
-- **DNA Helix**: Trigger 1 = Spin Kick(一瞬回転速度をブースト)/ Trigger 2 = Radius Pulse(一瞬螺旋を膨らませる)/ Trigger 3 = Flash(一瞬白く)
-- **Fireworks**: Trigger 1 = Launch Burst(一瞬爆発の勢いをブースト)/ Trigger 2 = Flash(一瞬白く)
-- **Fresnel Glass Sphere**: Trigger 1 = Glow Burst(一瞬輪郭の発光を強める)/ Trigger 2 = Core Flash(一瞬中心部も白く発光)
-- **Radial Rays**: Trigger 1 = Burst(一瞬発光範囲を広げる)/ Trigger 2 = Spin(一瞬回転速度をブースト)
-- **Aurora**: Trigger 1 = Brighten(一瞬発光を強める)/ Trigger 2 = Ripple(一瞬波を激しく揺らす)
-- **Spiral Galaxy**: Trigger 1 = Spin Burst(一瞬回転速度をブースト)/ Trigger 2 = Flash(一瞬白く)
-- **Flocking Boids**: Trigger 1 = Scatter(一瞬分離力を強め群れを散らす)/ Trigger 2 = Flash(一瞬白く)
-- **Bouncing Balls**: Trigger 1 = Bounce Burst(全ボールに上向きの勢いを与える)/ Trigger 2 = Flash(一瞬白く)
-- **Chladni Patterns**: Trigger 1 = Mode Shift(一瞬振動モードを変え模様を組み替える)/ Trigger 2 = Flash(一瞬白く)
-- **Sacred Geometry Mandala**: Trigger 1 = Bloom(一瞬花が開くように広がる)/ Trigger 2 = Spin Burst(一瞬回転速度をブースト)/ Trigger 3 = Flash(一瞬白く)
-- **Lightning Arcs**: Trigger 1 = Strike(全ての稲妻を強制発生させる)/ Trigger 2 = Flash(一瞬白く)
-- **Glitch Blocks**: Trigger 1 = Corrupt(一瞬グリッチを最大化)/ Trigger 2 = Flash(一瞬白く)
-- **Radial Bar Spectrum**: Trigger 1 = Height Kick(全バーを一瞬伸ばす)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = White Flash(一瞬白く)
-- **Origami Folding Planes**: Trigger 1 = Fold(一瞬深く折りたたむ)/ Trigger 2 = Flatten(一瞬平らに開く)/ Trigger 3 = Flash(一瞬白く)
-- **Ribbon Wave**: Trigger 1 = Wave Kick(一瞬うねりの振幅を強める)/ Trigger 2 = Flash(一瞬白く)
+- **Pulse Rings**: Trigger 1 = Ring Burst (spawns a new ring that bursts outward) / Trigger 2 = Color Flip (briefly reverses the coloring) / Trigger 3 = Radius Kick (briefly enlarges all rings)
+- **Bar Spectrum**: Trigger 1 = Height Kick (briefly stretches all bars) / Trigger 2 = Color Flip (briefly reverses the coloring) / Trigger 3 = White Flash (briefly flashes white)
+- **Noise Field**: Trigger 1 = Radial Push (pushes particles outward radially) / Trigger 2 = Freeze (briefly freezes motion) / Trigger 3 = Color Flash (briefly flashes white)
+- **Feedback Loop**: Trigger 1 = Zoom Punch (briefly intensifies the swirl distortion) / Trigger 2 = Flash (briefly intensifies the center glow) / Trigger 3 = Invert (briefly inverts the coloring)
+- **Wireframe Polyhedron**: Trigger 1 = Spin Kick (briefly boosts rotation speed) / Trigger 2 = Scale Pulse (briefly enlarges all polyhedra) / Trigger 3 = Flash (briefly flashes white)
+- **Kaleidoscope**: Trigger 1 = Segment Kick (briefly increases the segment count) / Trigger 2 = Spin Burst (briefly boosts rotation speed) / Trigger 3 = Flash (briefly brightens)
+- **Bloom Particles**: Trigger 1 = Radial Burst (pushes particles outward radially) / Trigger 2 = Bloom Flash (briefly intensifies the glow) / Trigger 3 = Freeze (briefly freezes motion)
+- **Rainbow**: Trigger 1 = Monochrome (briefly desaturates to grayscale) / Trigger 2 = Pale (briefly fades toward white) / Trigger 3 = Darken (briefly deepens toward black)
+- **Starfield Warp**: Trigger 1 = Warp Speed (briefly boosts speed sharply) / Trigger 2 = Flash (briefly makes stars bigger and white)
+- **Metaball Blob**: Trigger 1 = Spike (briefly deforms into spikes) / Trigger 2 = Smooth (briefly reverts to a perfect sphere)
+- **Halftone Dots**: Trigger 1 = Invert (briefly swaps dot/background coloring) / Trigger 2 = Zoom (briefly changes dot density) / Trigger 3 = Flash (briefly flashes white)
+- **Lissajous Lines**: Trigger 1 = Ratio Kick (briefly changes the frequency ratio, distorting the pattern) / Trigger 2 = Flash (briefly glows white)
+- **Voronoi Cells**: Trigger 1 = Shuffle (briefly changes the grid density, reshuffling the pattern) / Trigger 2 = Flash (briefly flashes white)
+- **Instanced Cube Grid**: Trigger 1 = Height Kick (briefly lifts all cubes) / Trigger 2 = Wave Pulse (briefly intensifies the ripple from the center) / Trigger 3 = White Flash (briefly flashes white)
+- **Matrix Rain**: Trigger 1 = Speed Burst (briefly boosts the scroll speed) / Trigger 2 = Flash (briefly flashes white)
+- **DNA Helix**: Trigger 1 = Spin Kick (briefly boosts rotation speed) / Trigger 2 = Radius Pulse (briefly widens the helix) / Trigger 3 = Flash (briefly flashes white)
+- **Fireworks**: Trigger 1 = Launch Burst (briefly boosts the explosion force) / Trigger 2 = Flash (briefly flashes white)
+- **Fresnel Glass Sphere**: Trigger 1 = Glow Burst (briefly intensifies the rim glow) / Trigger 2 = Core Flash (briefly makes the core glow white too)
+- **Radial Rays**: Trigger 1 = Burst (briefly widens the glow radius) / Trigger 2 = Spin (briefly boosts rotation speed)
+- **Aurora**: Trigger 1 = Brighten (briefly intensifies the glow) / Trigger 2 = Ripple (briefly makes the waves shake violently)
+- **Spiral Galaxy**: Trigger 1 = Spin Burst (briefly boosts rotation speed) / Trigger 2 = Flash (briefly flashes white)
+- **Flocking Boids**: Trigger 1 = Scatter (briefly strengthens separation, scattering the flock) / Trigger 2 = Flash (briefly flashes white)
+- **Bouncing Balls**: Trigger 1 = Bounce Burst (gives every ball an upward kick) / Trigger 2 = Flash (briefly flashes white)
+- **Chladni Patterns**: Trigger 1 = Mode Shift (briefly changes the vibration mode, reshuffling the pattern) / Trigger 2 = Flash (briefly flashes white)
+- **Sacred Geometry Mandala**: Trigger 1 = Bloom (briefly expands like a flower opening) / Trigger 2 = Spin Burst (briefly boosts rotation speed) / Trigger 3 = Flash (briefly flashes white)
+- **Lightning Arcs**: Trigger 1 = Strike (forces every bolt to fire at once) / Trigger 2 = Flash (briefly flashes white)
+- **Glitch Blocks**: Trigger 1 = Corrupt (briefly maximizes the glitching) / Trigger 2 = Flash (briefly flashes white)
+- **Radial Bar Spectrum**: Trigger 1 = Height Kick (briefly stretches all bars) / Trigger 2 = Color Flip (briefly reverses the coloring) / Trigger 3 = White Flash (briefly flashes white)
+- **Origami Folding Planes**: Trigger 1 = Fold (briefly folds deeply) / Trigger 2 = Flatten (briefly opens flat) / Trigger 3 = Flash (briefly flashes white)
+- **Ribbon Wave**: Trigger 1 = Wave Kick (briefly intensifies the wave amplitude) / Trigger 2 = Flash (briefly flashes white)
 
-## 操作方法(操作UI)
+## Controls (control UI)
 
-UI表記は英語です。
+The UI is in English.
 
-| キー / UI | 動作 |
+| Key / UI | Action |
 |---|---|
-| M / 「Enable Mic」/「Disable Mic」ボタン | マイク入力の有効・無効を切り替え(全投影窓共通) |
-| ← / → / 「Intensity」スライダー | エフェクトの強度を調整(全投影窓共通) |
-| 「Crossfade duration」スライダー | シーン切替の遷移時間を調整(全投影窓共通) |
-| 投影窓ごとのシーン選択(セレクトボックス) | 次に切り替えるシーンを予約 |
-| 投影窓ごとのパレット設定 | 次に切り替える配色をプリセット/カラーピッカーで予約 |
-| 投影窓ごとの「Save Preset」/選択/「Delete」 | 現在のシーン+パレットを名前付きで保存/削除。呼び出すと予約に反映される |
-| 投影窓ごとの「Crossfade」ボタン | 予約した内容へ実際に切り替える |
-| Space / 「Trigger 1」ボタン | Trigger 1を発火(全投影窓共通) |
-| Cmd右(Mac)/Ctrl右(Windows) / 「Trigger 2」ボタン | Trigger 2を発火(全投影窓共通) |
-| Cmd左(Mac)/Ctrl左(Windows) / 「Trigger 3」ボタン | Trigger 3を発火(全投影窓共通) |
-| F(投影窓側) | フルスクリーン切り替え |
+| M / "Enable Mic" / "Disable Mic" button | Toggles the microphone on/off (shared across all displays) |
+| ← / → / "Intensity" slider | Adjusts effect intensity (shared across all displays) |
+| "Crossfade duration" slider | Adjusts the scene-switch transition time (shared across all displays) |
+| Per-display scene selector | Reserves the next scene to switch to |
+| Per-display palette controls | Reserves the next colors to switch to, via preset or color pickers |
+| Per-display "Save Preset" / selector / "Delete" | Saves/deletes the current scene+palette under a name. Recalling one updates the reservation |
+| Per-display "Crossfade" button | Actually switches the display to the reserved content |
+| Space / "Trigger 1" button | Fires Trigger 1 (shared across all displays) |
+| Right Cmd (Mac) / Right Ctrl (Windows) / "Trigger 2" button | Fires Trigger 2 (shared across all displays) |
+| Left Cmd (Mac) / Left Ctrl (Windows) / "Trigger 3" button | Fires Trigger 3 (shared across all displays) |
+| F (on the display window) | Toggles fullscreen |
 
-## ビルド
+## Build
 
 ```bash
 npm run build
 npm run preview
 ```
 
-## 開発ドキュメント
+## Developer docs
 
-実装の背景・設計判断は [specs/](specs/README.md) 配下の仕様書を参照してください。コードベース全体の案内は [CLAUDE.md](CLAUDE.md) にあります。
+See the specs under [specs/](specs/README.md) for the background and design decisions behind the implementation. [CLAUDE.md](CLAUDE.md) has a guide to the codebase as a whole.
 
-## 今後の拡張案
+## Future ideas
 
-- BPM検出によるビート同期(2026-09-14に一度実装したが、検出精度が実用に耐えず撤回。再挑戦する場合はよりロバストな検出アルゴリズムの検討が必要)
+- Beat sync via BPM detection (implemented once on 2026-09-14, but abandoned since detection accuracy wasn't good enough for practical use. A retry would need a more robust detection algorithm)

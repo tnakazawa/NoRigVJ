@@ -1,7 +1,10 @@
 import { defineConfig } from "vite";
 import { fileURLToPath } from "node:url";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // GitHub Pages(https://tnakazawa.github.io/NoRigVJ/)はリポジトリ名のサブパスで配信されるため、
+  // ビルド時のみbaseを合わせる(開発サーバーは従来通りルート直下で動かす)
+  base: command === "build" ? "/NoRigVJ/" : "/",
   build: {
     rollupOptions: {
       input: {
@@ -10,4 +13,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
