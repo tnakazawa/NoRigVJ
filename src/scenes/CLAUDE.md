@@ -9,8 +9,8 @@
 - [_shared/types.ts](_shared/types.ts) — `Palette` / `Scene` / `SceneContext` / `SceneFactory` などの型定義。
 - [_shared/color-utils.ts](_shared/color-utils.ts) — `hexToRgb()` / `lerpColor()` などの色ヘルパー。
 - [index.ts](index.ts) — `import.meta.glob` で `src/scenes/*.ts`(`_shared/` を除く)を自動収集し、`sceneFactories: SceneFactory[]` をexportする。
-- 実装済みシーン(全10): `01-pulse-rings.ts`(音量に反応するトーラスの同心円) / `02-bar-spectrum.ts`(`InstancedMesh`による3Dイコライザー、バーの位置に応じてmain→subへ配色) / `03-noise-field.ts`(`Points`によるパーティクル群) / `04-feedback-loop.ts`(`WebGLRenderTarget`のピンポンによるフィードバックループ) / `05-plasma-lava.ts`(フルスクリーンquad+シェーダー、sin波合成のプラズマ模様) / `06-wireframe-polyhedron.ts`(`PerspectiveCamera`を使う初のシーン、回転する複数のワイヤーフレーム多面体) / `07-kaleidoscope.ts`(フルスクリーンquad+シェーダー、極座標の角度分割による万華鏡) / `08-grid-terrain.ts`(`PerspectiveCamera`、頂点シェーダーで波打つワイヤーフレーム地形) / `09-bloom-particles.ts`(`EffectComposer`+`UnrealBloomPass`を使う唯一のシーン、加算合成パーティクル群) / `10-rainbow.ts`(フルスクリーンquad+シェーダー、太さ画面高さ1/13の虹色7色の水平帯を敷き詰め、時間経過で下方向へループさせる。虹の配色自体が特徴のためパレット非対応)。`10-rainbow.ts`以外は全てパレット対応。カラーパレットの背景は [../../specs/004-scene-color-palette.md](../../specs/004-scene-color-palette.md) 参照。
-- 手動トリガー(Trigger 1/2/3、[../../specs/007-manual-trigger.md](../../specs/007-manual-trigger.md)参照)は `ctx.triggers`(固定長3、各0-1で発生時1→指数減衰)を使う。対応する演出があるシーンは `triggerEffectNames`(固定長3、対応インデックスに演出名・非対応は`undefined`)を持つ。現状8シーンが3種類ずつ対応(残り2シーンは非対応のまま。全シーン対応を目指したものではなく、シーンごとに自由に選べる設計であることを維持するため意図的に一部残している):
+- 実装済みシーン(全14): `01-pulse-rings.ts`(音量に反応するトーラスの同心円) / `02-bar-spectrum.ts`(`InstancedMesh`による3Dイコライザー、バーの位置に応じてmain→subへ配色) / `03-noise-field.ts`(`Points`によるパーティクル群) / `04-feedback-loop.ts`(`WebGLRenderTarget`のピンポンによるフィードバックループ) / `05-plasma-lava.ts`(フルスクリーンquad+シェーダー、sin波合成のプラズマ模様) / `06-wireframe-polyhedron.ts`(`PerspectiveCamera`を使う初のシーン、回転する複数のワイヤーフレーム多面体) / `07-kaleidoscope.ts`(フルスクリーンquad+シェーダー、極座標の角度分割による万華鏡) / `08-grid-terrain.ts`(`PerspectiveCamera`、頂点シェーダーで波打つワイヤーフレーム地形) / `09-bloom-particles.ts`(`EffectComposer`+`UnrealBloomPass`を使う唯一のシーン、加算合成パーティクル群) / `10-rainbow.ts`(フルスクリーンquad+シェーダー、太さ画面高さ1/13の虹色7色の水平帯を敷き詰め、時間経過で下方向へループさせる。虹の配色自体が特徴のためパレット非対応) / `11-starfield-warp.ts`(`Points`、カメラ手前へ一方向に流れ続ける星群。Noise Field/Bloom Particlesとは「揺れ」ではなく「前進」が主役という点で差別化) / `12-metaball-blob.ts`(`IcosahedronGeometry`の頂点をsin波合成で変位させた有機的な塊。simplex noise等は使わずsin波合成に留めている) / `13-halftone-dots.ts`(フルスクリーンquad+シェーダー、格子状の円ドットが音声で拡縮する印刷物のハーフトーン風グラフィック) / `14-lissajous-lines.ts`(`THREE.Line`によるリサージュ曲線。既存シーンは全て面の塗りつぶしだが、これが唯一の線画表現)。`10-rainbow.ts`以外は全てパレット対応。カラーパレットの背景は [../../specs/004-scene-color-palette.md](../../specs/004-scene-color-palette.md) 参照。
+- 手動トリガー(Trigger 1/2/3、[../../specs/007-manual-trigger.md](../../specs/007-manual-trigger.md)参照)は `ctx.triggers`(固定長3、各0-1で発生時1→指数減衰)を使う。対応する演出があるシーンは `triggerEffectNames`(固定長3、対応インデックスに演出名・非対応は`undefined`)を持つ。シーンは0〜3個の任意個数だけ対応してよく、無理に3つ埋める必要はない(実際 `11-starfield-warp.ts` 等は2種類のみ)。現状12シーンが対応(残り2シーンは非対応のまま。全シーン対応を目指したものではなく、シーンごとに自由に選べる設計であることを維持するため意図的に一部残している):
   - `01-pulse-rings.ts`: Ring Burst / Color Flip / Radius Kick
   - `02-bar-spectrum.ts`: Height Kick(全バーの高さに一時オフセット) / Color Flip / White Flash(配色を白へ寄せる)
   - `03-noise-field.ts`: Radial Push / Freeze / Color Flash
@@ -19,6 +19,10 @@
   - `07-kaleidoscope.ts`: Segment Kick(分割数を一時的に増やす) / Spin Burst(回転速度を一時ブースト) / Flash(明るさを一時増幅)
   - `09-bloom-particles.ts`: Radial Burst(基準位置から放射方向に一時押し出す) / Bloom Flash(Bloom強度を一時増幅) / Freeze
   - `10-rainbow.ts`: Monochrome(彩度を落としグレースケールへ) / Pale(白へ寄せて淡く) / Darken(黒へ寄せて濃く)
+  - `11-starfield-warp.ts`: Warp Speed(前進速度を一時大幅ブースト) / Flash(星を一時大きく白く)
+  - `12-metaball-blob.ts`: Spike(変位量を一時増幅しトゲトゲに) / Smooth(変位量を一時0に絞り真球へ)
+  - `13-halftone-dots.ts`: Invert(ドット/背景の配色を一時反転) / Zoom(グリッドを一時的に細かく) / Flash(白へ寄せる)
+  - `14-lissajous-lines.ts`: Ratio Kick(周波数比に一時オフセットを加え模様を歪ませる) / Flash(白へ寄せる)
   - `05-plasma-lava.ts` / `08-grid-terrain.ts` は現状非対応。新規シーンで対応する場合、`triggerEffectNames` ごと省略してよい(未対応シーンでは操作UI側のボタンが自動的に無効化される)。
 
 ## シーン追加の手順
@@ -38,3 +42,4 @@
 - `THREE.LineBasicMaterial` の `linewidth` は、ほぼ全てのブラウザ(ANGLE経由のWebGL実装)で1に固定される既知の制限がある。`06-wireframe-polyhedron.ts` では「線の太さ」の代わりに `opacity` を音声反応させて代用している。実際に太い線が必要な場合は `three/examples/jsm/lines/LineSegments2` 等(Fat Lines)を検討する必要があるが、実装コストが上がるため今は使っていない。
 - `EffectComposer`/`UnrealBloomPass` など後処理を使う場合(`09-bloom-particles.ts`)は `three/examples/jsm/postprocessing/*.js` からimportする(three.js本体に同梱、追加パッケージ不要)。`render()` 内では `ctx.renderer.render()` の代わりに `composer.render()` を呼び、リサイズは毎フレーム `composer.setSize(ctx.width, ctx.height)` を呼ぶだけでよい(`EffectComposer` が内部のRenderTargetのリサイズを吸収してくれるため、`04-feedback-loop.ts` の `ensureRenderTargets` のような「サイズが変わった時だけ再生成」の工夫は不要)。
 - `InstancedMesh`(`02-bar-spectrum.ts`)でインスタンスごとに色を変える場合、`instanceColor` に `THREE.InstancedBufferAttribute` を明示的にセットしてから `setColorAt()` を使う必要がある(コンストラクタが自動生成してくれないため)。
+- フラグメントシェーダーで `dFdx`/`dFdy`(`12-metaball-blob.ts` で、頂点変位後の法線を再計算せずスクリーンスペース微分からフラットシェーディング用の面法線を求めるのに使用)を使う場合、three.js r150以降はWebGL2がデフォルトのためコア機能として使え、`ShaderMaterial` に `extensions: { derivatives: true }` を渡す必要はない(古いバージョン向けの情報を参考にすると型エラーになる)。
