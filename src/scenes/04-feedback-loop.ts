@@ -19,6 +19,9 @@ const fragmentShader = `
   uniform float uAspect;
   uniform vec3 uMainColor;
   uniform vec3 uSubColor;
+  uniform float uTrigger0;
+  uniform float uTrigger1;
+  uniform float uTrigger2;
   varying vec2 vUv;
 
   vec2 rotate(vec2 v, float angle) {
@@ -41,17 +44,24 @@ const fragmentShader = `
     vec2 aspectVec = vec2(uAspect, 1.0);
     vec2 centered = (vUv - 0.5) * aspectVec;
 
+    // Trigger 1(Zoom Punch): 発生中は前フレームの回転・縮小の歪み量を一時的に増幅する
+    float zoomPunch = uTrigger0;
+
     // 前フレームをわずかに回転・縮小させながらサンプリングし、渦を巻くような残像を作る
-    float angle = 0.01 + bass * 0.03;
-    vec2 rotated = rotate(centered, angle) * (1.0 - 0.01 - treble * 0.01);
+    float angle = 0.01 + bass * 0.03 + zoomPunch * 0.5;
+    vec2 rotated = rotate(centered, angle) * (1.0 - 0.01 - treble * 0.01 - zoomPunch * 0.08);
     vec2 uv = rotated / aspectVec + 0.5;
     vec3 prev = texture2D(uPrevFrame, uv).rgb * 0.9;
+
+    // Trigger 3(Invert): 発生中は前フレームの配色を反転させる
+    prev = mix(prev, 1.0 - prev, step(0.5, uTrigger2));
 
     // 中心から音量に応じて発光する種火を継ぎ足す。表示範囲・音声反応とも要望でさらに拡大しており、
     // 音量が高いと中心が白飛びしうる(はみ出てよい旨・敏感さ優先の指示のため許容)
     // 発光色はメイン⇔サブの2色間を時間でゆっくり往復させる(色相が回り続ける表現はやめている)
     float d = length(centered);
-    float glow = smoothstep(0.25 * 1.25 * 2.0, 0.0, d) * (0.01 + volume * 0.05 * 1.75 * 1.5);
+    // Trigger 2(Flash): 発生中は種火の発光強度を一時的に強める
+    float glow = smoothstep(0.25 * 1.25 * 2.0, 0.0, d) * (0.01 + volume * 0.05 * 1.75 * 1.5 + uTrigger1 * 0.3);
     float mixAmount = 0.5 + 0.5 * sin(uTime * 0.5);
     vec3 seed = glow * mix(uMainColor, uSubColor, mixAmount);
 
@@ -82,6 +92,7 @@ const createFeedbackLoopScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Feedback Loop",
     supportsPalette: true,
+    triggerEffectNames: ["Zoom Punch", "Flash", "Invert"],
     init(ctx: SceneContext) {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -97,6 +108,9 @@ const createFeedbackLoopScene: SceneFactory = () => {
           uAspect: { value: 1 },
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
+          uTrigger0: { value: 0 },
+          uTrigger1: { value: 0 },
+          uTrigger2: { value: 0 },
         },
       });
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
@@ -116,6 +130,9 @@ const createFeedbackLoopScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
+      material.uniforms.uTrigger0.value = ctx.triggers[0];
+      material.uniforms.uTrigger1.value = ctx.triggers[1];
+      material.uniforms.uTrigger2.value = ctx.triggers[2];
 
       ctx.renderer.setRenderTarget(targetB);
       ctx.renderer.render(renderScene, camera);

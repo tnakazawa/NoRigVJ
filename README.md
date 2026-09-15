@@ -33,7 +33,7 @@ npm run dev
 - **Kaleidoscope** — 極座標の角度分割による万華鏡状の反復模様。カラーパレット対応。
 - **Grid Terrain** — 音声で波打つワイヤーフレーム地形。奥行きのある見下ろし構図。カラーパレット対応。
 - **Bloom Particles** — 発光(Bloom)する加算合成パーティクル群。カラーパレット対応。
-- **Rainbow** — 虹色の弧を積み重ねた表現。虹の配色自体が特徴のため、カラーパレット非対応。
+- **Rainbow** — 画面いっぱいの虹色の平行線が上から下へ流れ続ける表現。虹の配色自体が特徴のため、カラーパレット非対応。
 
 ## カラーパレット
 
@@ -49,10 +49,16 @@ npm run dev
 
 ## 手動トリガー演出
 
-VJ本人がここぞという瞬間にボタン/キーで発火する、ワンショットの演出です(以前試みたBPM自動検出は精度不足で撤回、上記参照)。「Trigger 1」「Trigger 2」「Trigger 3」の3種類があり、押すと全投影窓(操作UIのプレビュー含む)が同時に反応します。どの演出を持つかはシーンごとに異なり、対応する演出が無いシーンを表示中はボタンが無効化されます(現時点で対応しているのはPulse Rings・Noise Fieldの2シーン)。
+VJ本人がここぞという瞬間にボタン/キーで発火する、ワンショットの演出です(以前試みたBPM自動検出は精度不足で撤回、上記参照)。「Trigger 1」「Trigger 2」「Trigger 3」の3種類があり、押すと全投影窓(操作UIのプレビュー含む)が同時に反応します。どの演出を持つかはシーンごとに異なり、対応する演出が無いシーンを表示中はボタンが無効化されます(現時点で対応しているのはPulse Rings・Bar Spectrum・Noise Field・Feedback Loop・Wireframe Polyhedron・Kaleidoscope・Bloom Particles・Rainbowの8シーン)。
 
 - **Pulse Rings**: Trigger 1 = Ring Burst(リング新規生成して弾ける)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = Radius Kick(全リングを一瞬拡大)
+- **Bar Spectrum**: Trigger 1 = Height Kick(全バーを一瞬伸ばす)/ Trigger 2 = Color Flip(配色を一瞬反転)/ Trigger 3 = White Flash(一瞬白く)
 - **Noise Field**: Trigger 1 = Radial Push(パーティクルを放射状に押し出す)/ Trigger 2 = Freeze(一瞬静止)/ Trigger 3 = Color Flash(一瞬白く)
+- **Feedback Loop**: Trigger 1 = Zoom Punch(渦の歪みを一瞬強める)/ Trigger 2 = Flash(中心の発光を一瞬強める)/ Trigger 3 = Invert(配色を一瞬反転)
+- **Wireframe Polyhedron**: Trigger 1 = Spin Kick(回転速度を一瞬ブースト)/ Trigger 2 = Scale Pulse(全多面体を一瞬拡大)/ Trigger 3 = Flash(一瞬白く)
+- **Kaleidoscope**: Trigger 1 = Segment Kick(分割数を一瞬増やす)/ Trigger 2 = Spin Burst(回転速度を一瞬ブースト)/ Trigger 3 = Flash(一瞬明るく)
+- **Bloom Particles**: Trigger 1 = Radial Burst(パーティクルを放射状に押し出す)/ Trigger 2 = Bloom Flash(発光を一瞬強める)/ Trigger 3 = Freeze(一瞬静止)
+- **Rainbow**: Trigger 1 = Monochrome(一瞬彩度を落としグレースケールに)/ Trigger 2 = Pale(一瞬淡く白へ)/ Trigger 3 = Darken(一瞬濃く黒へ)
 
 ## 操作方法(操作UI)
 

@@ -18,6 +18,9 @@ const fragmentShader = `
   uniform float uAspect;
   uniform vec3 uMainColor;
   uniform vec3 uSubColor;
+  uniform float uTrigger0;
+  uniform float uTrigger1;
+  uniform float uTrigger2;
   varying vec2 vUv;
 
   void main() {
@@ -30,14 +33,14 @@ const fragmentShader = `
     vec2 aspectVec = vec2(uAspect, 1.0);
     vec2 p = (vUv - 0.5) * aspectVec;
 
-    // trebleで回転速度を変えつつ、極座標に変換する
-    float rotation = uTime * (0.2 + treble * 0.6);
+    // Trigger 2(Spin Burst): 発生中は回転速度を一時的にブーストする
+    float rotation = uTime * (0.2 + treble * 0.6 + uTrigger1 * 4.0);
     float angle = atan(p.y, p.x) + rotation;
     float radius = length(p);
 
     // bassで分割数(5〜11)を段階的に変え、角度をセグメント内に鏡映対称で折り返すことで
-    // 万華鏡状の反復模様を作る
-    float segments = floor(5.0 + bass * 6.0);
+    // 万華鏡状の反復模様を作る。Trigger 1(Segment Kick)は発生中さらに分割数を増やし、模様を一瞬複雑化する
+    float segments = floor(5.0 + bass * 6.0 + uTrigger0 * 10.0);
     float segAngle = 6.28318530718 / segments;
     float a = mod(angle, segAngle);
     a = abs(a - segAngle * 0.5);
@@ -46,7 +49,8 @@ const fragmentShader = `
     v *= sin(a * 10.0) * 0.5 + 0.5;
 
     vec3 color = mix(uMainColor, uSubColor, v);
-    float brightness = 0.4 + volume * 0.8;
+    // Trigger 3(Flash): 発生中は明るさを一時的に強める
+    float brightness = 0.4 + volume * 0.8 + uTrigger2 * 2.0;
     gl_FragColor = vec4(color * brightness, 1.0);
   }
 `;
@@ -60,6 +64,7 @@ const createKaleidoscopeScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Kaleidoscope",
     supportsPalette: true,
+    triggerEffectNames: ["Segment Kick", "Spin Burst", "Flash"],
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -74,6 +79,9 @@ const createKaleidoscopeScene: SceneFactory = () => {
           uAspect: { value: 1 },
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
+          uTrigger0: { value: 0 },
+          uTrigger1: { value: 0 },
+          uTrigger2: { value: 0 },
         },
       });
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
@@ -87,6 +95,9 @@ const createKaleidoscopeScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
+      material.uniforms.uTrigger0.value = ctx.triggers[0];
+      material.uniforms.uTrigger1.value = ctx.triggers[1];
+      material.uniforms.uTrigger2.value = ctx.triggers[2];
       ctx.renderer.render(renderScene, camera);
     },
   };

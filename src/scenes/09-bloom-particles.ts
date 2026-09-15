@@ -20,10 +20,13 @@ const createBloomParticlesScene: SceneFactory = () => {
   // 各パーティクルの基準位置(この周りをsin波で揺らす)と、揺れの位相をずらすための乱数シード
   let basePositions: Float32Array;
   let seeds: Float32Array;
+  // Trigger 3(Freeze)発生中、揺れの計算に使う時間を固定するための開始時刻
+  let frozenAtTime: number | null = null;
 
   const scene: Scene = {
     name: "Bloom Particles",
     supportsPalette: true,
+    triggerEffectNames: ["Radial Burst", "Bloom Flash", "Freeze"],
     init(ctx: SceneContext) {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
@@ -75,6 +78,14 @@ const createBloomParticlesScene: SceneFactory = () => {
       const bass = Math.min(3, ctx.audio.bass);
       const treble = Math.min(3, ctx.audio.treble);
 
+      // Trigger 3(Freeze): 発生中は揺れの計算に使う時間経過を止める
+      if (ctx.triggers[2] > 0.01) {
+        if (frozenAtTime === null) frozenAtTime = ctx.time;
+      } else {
+        frozenAtTime = null;
+      }
+      const effectiveTime = frozenAtTime ?? ctx.time;
+
       const positionAttr = points.geometry.getAttribute("position") as THREE.BufferAttribute;
       const colorAttr = points.geometry.getAttribute("color") as THREE.BufferAttribute;
       const [mr, mg, mb] = hexToRgb(ctx.palette.main);
@@ -82,18 +93,25 @@ const createBloomParticlesScene: SceneFactory = () => {
       // bassで揺れの速さ、trebleで揺れ幅(散らばり具合)を変える
       const speed = 0.3 + bass * 2.0;
       const wobbleAmount = 0.3 + treble * 1.0;
+      // Trigger 1(Radial Burst): 発生中は基準位置から放射方向に一瞬押し出す
+      const radialBurst = ctx.triggers[0] * 4;
 
       for (let i = 0; i < PARTICLE_COUNT; i++) {
         const seed = seeds[i];
         const bx = basePositions[i * 3];
         const by = basePositions[i * 3 + 1];
         const bz = basePositions[i * 3 + 2];
-        positionAttr.setXYZ(
-          i,
-          bx + Math.sin(ctx.time * speed + seed) * wobbleAmount,
-          by + Math.cos(ctx.time * speed * 0.8 + seed) * wobbleAmount,
-          bz,
-        );
+        let x = bx + Math.sin(effectiveTime * speed + seed) * wobbleAmount;
+        let y = by + Math.cos(effectiveTime * speed * 0.8 + seed) * wobbleAmount;
+        let z = bz;
+
+        if (radialBurst > 0.01) {
+          const len = Math.hypot(bx, by, bz) || 1;
+          x += (bx / len) * radialBurst;
+          y += (by / len) * radialBurst;
+          z += (bz / len) * radialBurst;
+        }
+        positionAttr.setXYZ(i, x, y, z);
 
         // パーティクルごとに固定の疑似乱数(seedベース)でメイン/サブ間を補間する
         const t = Math.sin(seed) * 0.5 + 0.5;
@@ -102,8 +120,8 @@ const createBloomParticlesScene: SceneFactory = () => {
       positionAttr.needsUpdate = true;
       colorAttr.needsUpdate = true;
 
-      // volumeでBloomの発光強度を変える
-      bloomPass.strength = 0.6 + volume * 1.8;
+      // volumeでBloomの発光強度を変える。Trigger 2(Bloom Flash)発生中は一時的にさらに強める
+      bloomPass.strength = 0.6 + volume * 1.8 + ctx.triggers[1] * 3;
 
       composer.render();
     },
