@@ -80,6 +80,10 @@ Per-display scene selection, palette settings, and preset selection don't take e
 
 Press the "Random" button in the panel to instantly randomize every display: each display independently picks a random scene (excluding Blank, and never repeating the scene it was just showing) and a random color palette preset, then crossfades to it using the current Crossfade duration. Intensity is also randomized (shared across all displays, since it's a single value). The button is disabled while no display is connected.
 
+## Full-auto mode
+
+Set the "Auto interval" slider (1-240 minutes) and toggle the "Auto: OFF" / "Auto: ON" button in the panel to have the app repeat the semi-auto randomization above automatically, without pressing "Random" yourself. While on, the button shows a countdown to the next automatic switch (e.g. `Auto: ON (next in 04:32)`). Manually pressing a display's "Crossfade" button or the "Random" button turns full-auto off; a manual scene reservation, palette change, preset recall, Trigger, or Intensity/Crossfade duration adjustment does not. The toggle stays enabled even with no displays connected.
+
 ## Manual trigger effects
 
 One-shot effects the VJ fires with a button or key at just the right moment (an earlier attempt at automatic BPM detection was abandoned for insufficient accuracy — see below). There are three, "Trigger 1", "Trigger 2", and "Trigger 3", and pressing one makes every display (including the control UI's previews) react simultaneously. Which effects a scene has varies by scene, and the button is disabled while a scene with no matching effect is shown (30 of the 33 scenes support triggers; Blank, Plasma Lava, and Grid Terrain don't).

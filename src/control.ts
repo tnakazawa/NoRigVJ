@@ -16,6 +16,9 @@ const crossfadeDurationValueEl = document.getElementById("crossfade-duration-val
 const micToggleBtn = document.getElementById("mic-toggle") as HTMLButtonElement;
 const addDisplayBtn = document.getElementById("add-display") as HTMLButtonElement;
 const randomBtn = document.getElementById("random-btn") as HTMLButtonElement;
+const autoIntervalSlider = document.getElementById("auto-interval") as HTMLInputElement;
+const autoIntervalValueEl = document.getElementById("auto-interval-value")!;
+const autoToggleBtn = document.getElementById("auto-toggle-btn") as HTMLButtonElement;
 const statusEl = document.getElementById("status")!;
 const triggerButtons = [
   document.getElementById("trigger-1") as HTMLButtonElement,
@@ -32,6 +35,14 @@ let crossfadeDurationMs = 1000;
 let latestAudio: AudioLevels = { volume: 0, bass: 0, mid: 0, treble: 0 };
 let latestTime = 0;
 let latestTriggers: [number, number, number] = [0, 0, 0];
+
+// フルオートモード([specs/012-full-auto-mode.md](../specs/012-full-auto-mode.md)参照)。
+// VJが手動でCrossfade/Randomボタンを押すと解除される(シーン予約変更・Trigger発火・
+// Intensity/Crossfade durationスライダー操作では解除しない)。
+let fullAutoIntervalMs = 5 * 60 * 1000;
+let fullAutoEnabled = false;
+/** 次回自動実行の予定時刻(performance.now()と同じ時間軸)。fullAutoEnabled中のみ意味を持つ */
+let fullAutoNextFireAt = 0;
 
 // 各トリガーが最後に発火した時刻(performance.now()、未発火は0)。VJStateへは
 // 「直近に発火した1件」だけをidつきで送り、投影窓側はidの変化で新規発火を判定する
@@ -359,6 +370,45 @@ function randomizeAll() {
   setIntensity(Math.round(Math.random() * 90) / 10);
 }
 
+function setAutoInterval(minutes: number) {
+  fullAutoIntervalMs = Math.round(minutes) * 60 * 1000;
+  autoIntervalValueEl.textContent = String(Math.round(minutes));
+}
+
+/** ミリ秒を "mm:ss" 形式にする(フルオートの残り時間表示用)。 */
+function formatMmSs(ms: number): string {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const mm = Math.floor(totalSec / 60);
+  const ss = totalSec % 60;
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+
+/** フルオートのトグルボタンの表示を、現在時刻に応じて更新する。 */
+function updateAutoToggleLabel(now: number) {
+  autoToggleBtn.textContent = fullAutoEnabled ? `Auto: ON (next in ${formatMmSs(fullAutoNextFireAt - now)})` : "Auto: OFF";
+}
+
+/** VJが手動でCrossfade/Randomボタンを押したときに呼ぶ。フルオートが有効なら解除する。 */
+function disableFullAuto() {
+  if (!fullAutoEnabled) return;
+  fullAutoEnabled = false;
+  updateAutoToggleLabel(performance.now());
+}
+
+autoIntervalSlider.addEventListener("input", () => {
+  setAutoInterval(Number(autoIntervalSlider.value));
+});
+
+autoToggleBtn.addEventListener("click", () => {
+  if (fullAutoEnabled) {
+    fullAutoEnabled = false;
+  } else {
+    fullAutoEnabled = true;
+    fullAutoNextFireAt = performance.now() + fullAutoIntervalMs;
+  }
+  updateAutoToggleLabel(performance.now());
+});
+
 /** 「投影窓を追加」ボタンの処理。新規投影窓を開き、対応する行・レイヤー・イベントハンドラを組み立てる。 */
 function addDisplay() {
   const id = crypto.randomUUID();
@@ -482,6 +532,7 @@ function addDisplay() {
   });
 
   crossfadeBtn.addEventListener("click", () => {
+    disableFullAuto();
     startEntryCrossfade(entry);
   });
 
@@ -514,6 +565,7 @@ addDisplayBtn.addEventListener("click", () => {
 });
 
 randomBtn.addEventListener("click", () => {
+  disableFullAuto();
   randomizeAll();
 });
 
@@ -548,6 +600,8 @@ async function toggleMic() {
 
 setIntensity(manualIntensity);
 setCrossfadeDuration(Number(crossfadeDurationSlider.value));
+setAutoInterval(Number(autoIntervalSlider.value));
+updateAutoToggleLabel(performance.now());
 
 intensitySlider.addEventListener("input", () => {
   setIntensity(Number(intensitySlider.value));
@@ -623,6 +677,13 @@ function tick() {
   latestTime = time;
   latestAudio = scaledLevels;
   latestTriggers = computeTriggers(performance.now());
+
+  const now = performance.now();
+  if (fullAutoEnabled && now >= fullAutoNextFireAt) {
+    randomizeAll();
+    fullAutoNextFireAt = now + fullAutoIntervalMs;
+  }
+  updateAutoToggleLabel(now);
 
   // 投影窓の生存確認。ユーザーがウィンドウ自体を閉じた場合も一覧から自動的に除去する。
   for (const [id, entry] of [...displays]) {
