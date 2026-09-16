@@ -82,7 +82,7 @@ Press the "Random" button in the panel to instantly randomize every display: eac
 
 ## Full-auto mode
 
-Set the "Auto interval" slider (1-240 minutes) and toggle the "Auto: OFF" / "Auto: ON" button in the panel to have the app repeat the semi-auto randomization above automatically, without pressing "Random" yourself. While on, the button shows a countdown to the next automatic switch (e.g. `Auto: ON (next in 04:32)`). Manually pressing a display's "Crossfade" button or the "Random" button turns full-auto off; a manual scene reservation, palette change, preset recall, Trigger, or Intensity/Crossfade duration adjustment does not. The toggle stays enabled even with no displays connected.
+Set the "Auto interval" slider (5-60 seconds) and press the toggle button in the panel to have the app repeat the semi-auto randomization above automatically, without pressing "Random" yourself. The button label shows what clicking it will do: "Auto: ON" when it's off, and "Auto: OFF (next in mm:ss)" — counting down to the next automatic switch — while it's running. The Crossfade duration is never allowed to exceed the Auto interval (so a crossfade always finishes before the next automatic switch): it's automatically shortened to match whenever you change the Auto interval, turn full-auto on, or adjust the Crossfade duration while full-auto is on. Manually pressing a display's "Crossfade" button or the "Random" button turns full-auto off; a manual scene reservation, palette change, preset recall, Trigger, or Intensity/Crossfade duration adjustment does not. The toggle stays enabled even with no displays connected.
 
 ## Manual trigger effects
 

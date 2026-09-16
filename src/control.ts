@@ -370,9 +370,21 @@ function randomizeAll() {
   setIntensity(Math.round(Math.random() * 90) / 10);
 }
 
-function setAutoInterval(minutes: number) {
-  fullAutoIntervalMs = Math.round(minutes) * 60 * 1000;
-  autoIntervalValueEl.textContent = String(Math.round(minutes));
+/** Crossfade durationがAuto intervalを超えていたら、Auto intervalに合わせて短縮する
+ * (クロスフェードが終わる前に次の自動切替が来てしまう状態を避けるため)。Auto interval変更時・
+ * フルオートをONにする瞬間・フルオートON中のCrossfade duration変更時、いずれからも呼ばれる。 */
+function clampCrossfadeDurationToAutoInterval() {
+  if (crossfadeDurationMs > fullAutoIntervalMs) {
+    const seconds = fullAutoIntervalMs / 1000;
+    setCrossfadeDuration(seconds);
+    crossfadeDurationSlider.value = String(seconds);
+  }
+}
+
+function setAutoInterval(seconds: number) {
+  fullAutoIntervalMs = Math.round(seconds) * 1000;
+  autoIntervalValueEl.textContent = String(Math.round(seconds));
+  clampCrossfadeDurationToAutoInterval();
 }
 
 /** ミリ秒を "mm:ss" 形式にする(フルオートの残り時間表示用)。 */
@@ -383,9 +395,12 @@ function formatMmSs(ms: number): string {
   return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
 }
 
-/** フルオートのトグルボタンの表示を、現在時刻に応じて更新する。 */
+/** フルオートのトグルボタンの表示を、現在時刻に応じて更新する。ボタンには「押すと切り替わる先」を表示する
+ * (ONの間は「OFFにする」ボタンとして次回実行までの残り時間を、OFFの間は「ONにする」ボタンとして表示する)。 */
 function updateAutoToggleLabel(now: number) {
-  autoToggleBtn.textContent = fullAutoEnabled ? `Auto: ON (next in ${formatMmSs(fullAutoNextFireAt - now)})` : "Auto: OFF";
+  autoToggleBtn.textContent = fullAutoEnabled
+    ? `Auto: OFF (next in ${formatMmSs(fullAutoNextFireAt - now)})`
+    : "Auto: ON";
 }
 
 /** VJが手動でCrossfade/Randomボタンを押したときに呼ぶ。フルオートが有効なら解除する。 */
@@ -405,6 +420,7 @@ autoToggleBtn.addEventListener("click", () => {
   } else {
     fullAutoEnabled = true;
     fullAutoNextFireAt = performance.now() + fullAutoIntervalMs;
+    clampCrossfadeDurationToAutoInterval();
   }
   updateAutoToggleLabel(performance.now());
 });
@@ -609,6 +625,8 @@ intensitySlider.addEventListener("input", () => {
 
 crossfadeDurationSlider.addEventListener("input", () => {
   setCrossfadeDuration(Number(crossfadeDurationSlider.value));
+  // フルオートON中は、Crossfade durationがAuto intervalを超えないようクランプする
+  if (fullAutoEnabled) clampCrossfadeDurationToAutoInterval();
 });
 
 micToggleBtn.addEventListener("click", () => {

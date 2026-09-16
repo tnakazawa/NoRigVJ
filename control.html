@@ -281,6 +281,12 @@
       input[type="range"] {
         width: 100%;
       }
+      #panel hr {
+        width: 100%;
+        border: none;
+        border-top: 1px solid #333;
+        margin: 0;
+      }
       #status {
         font-size: 12px;
         opacity: 0.8;
@@ -304,18 +310,23 @@
           <strong>Crossfade duration: <span id="crossfade-duration-value">1.0</span>s</strong>
           <input type="range" id="crossfade-duration" min="0" max="16" step="0.1" value="1" />
         </section>
+        <hr />
+        <section>
+          <button id="random-btn" class="primary-btn">Random</button>
+        </section>
+        <hr />
+        <section>
+          <strong>Auto interval: <span id="auto-interval-value">15</span>s</strong>
+          <input type="range" id="auto-interval" min="5" max="60" step="1" value="15" />
+        </section>
+        <section>
+          <button id="auto-toggle-btn">Auto: ON</button>
+        </section>
+        <hr />
         <section>
           <button id="trigger-1" class="trigger-btn">Trigger 1 (Space)</button>
           <button id="trigger-2" class="trigger-btn">Trigger 2 (Cmd Right / Ctrl Right)</button>
           <button id="trigger-3" class="trigger-btn">Trigger 3 (Cmd Left / Ctrl Left)</button>
-        </section>
-        <section>
-          <button id="random-btn" class="primary-btn">Random</button>
-        </section>
-        <section>
-          <strong>Auto interval: <span id="auto-interval-value">5</span>m</strong>
-          <input type="range" id="auto-interval" min="1" max="240" step="1" value="5" />
-          <button id="auto-toggle-btn">Auto: OFF</button>
         </section>
         <section class="panel-footer">
           <button id="mic-toggle">Enable Mic (M)</button>

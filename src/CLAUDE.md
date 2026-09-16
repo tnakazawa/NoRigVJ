@@ -57,6 +57,6 @@ UI表記は英語。
 | Cmd右(`MetaRight`)/Ctrl右(`ControlRight`)、「Trigger 2」ボタン | Trigger 2を発火 |
 | Cmd左(`MetaLeft`)/Ctrl左(`ControlLeft`)、「Trigger 3」ボタン | Trigger 3を発火 |
 | 「Random」ボタン | セミオートモード([specs/011-semi-auto-mode.md](../specs/011-semi-auto-mode.md)参照)。表示中の各投影窓を独立にランダムなシーン(Blank除く、直前と同じシーンは選ばない)・ランダムな32色プリセットへクロスフェードし、Intensityも1回だけランダムに変更する。投影窓が1つもなければ無効化される |
-| 「Auto interval」スライダー / 「Auto」トグルボタン | フルオートモード([specs/012-full-auto-mode.md](../specs/012-full-auto-mode.md)参照)。ONの間、設定した間隔(1〜240分)ごとに「Random」ボタンと同じ処理を自動実行し続ける。ボタンには次回実行までの残り時間を`mm:ss`表示する。投影窓の「Crossfade」ボタン・「Random」ボタンを手動操作するとOFFになる(シーン予約変更・Trigger発火・Intensity/Crossfade durationの操作ではOFFにならない)。投影窓が1つもなくても操作できる |
+| 「Auto interval」スライダー / 「Auto」トグルボタン | フルオートモード([specs/012-full-auto-mode.md](../specs/012-full-auto-mode.md)参照)。ONの間、設定した間隔(5〜60秒)ごとに「Random」ボタンと同じ処理を自動実行し続ける。Crossfade durationは常にAuto interval以下に保たれる(クロスフェードが終わる前に次の自動切替が来る状態を避けるため): Auto interval変更時・フルオートをONにした瞬間・フルオートON中のCrossfade duration操作時のいずれでも、超えていれば自動的にAuto intervalまで短縮する。ボタンは「押すと切り替わる先」を表示する(OFF中は「Auto: ON」、ON中は「Auto: OFF (next in mm:ss)」と次回実行までの残り時間を表示)。投影窓の「Crossfade」ボタン・「Random」ボタンを手動操作するとOFFになる(シーン予約変更・Trigger発火・Intensity/Crossfade durationの操作ではOFFにならない)。投影窓が1つもなくても操作できる |
 
 数字キー(1/2/3)によるシーン切替・トリガー発火は廃止済み(投影窓ごとにシーンが異なりうる中でシーン切替キーとして使うと「どの窓に効くか」が曖昧になるため、そもそもシーン切替用途では使っていない。トリガー用途としても、後日 Space/Cmd/Ctrl 割当に置き換えられた)。投影窓側では `F` キーでフルスクリーン切り替え。
