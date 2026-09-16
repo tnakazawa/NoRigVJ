@@ -15,6 +15,7 @@ const crossfadeDurationSlider = document.getElementById("crossfade-duration") as
 const crossfadeDurationValueEl = document.getElementById("crossfade-duration-value")!;
 const micToggleBtn = document.getElementById("mic-toggle") as HTMLButtonElement;
 const addDisplayBtn = document.getElementById("add-display") as HTMLButtonElement;
+const randomBtn = document.getElementById("random-btn") as HTMLButtonElement;
 const statusEl = document.getElementById("status")!;
 const triggerButtons = [
   document.getElementById("trigger-1") as HTMLButtonElement,
@@ -97,9 +98,10 @@ interface DisplayEntry {
 const displays = new Map<string, DisplayEntry>();
 let displayCounter = 0;
 
-/** 投影窓が1つもない間だけ「投影窓がありません」の案内を表示する。 */
+/** 投影窓が1つもない間だけ「投影窓がありません」の案内を表示し、Randomボタンを無効化する。 */
 function updateDisplaysEmptyVisibility() {
   displaysEmptyEl.style.display = displays.size === 0 ? "block" : "none";
+  randomBtn.disabled = displays.size === 0;
 }
 
 function palettesEqual(a: Palette, b: Palette): boolean {
@@ -324,6 +326,39 @@ function startEntryCrossfade(entry: DisplayEntry) {
   );
 }
 
+/** Blank(index 0)と、除外したいシーン(通常は現在表示中のシーン)を除いた中から1つランダムに選ぶ。 */
+function pickRandomSceneIndex(excludeIndex: number): number {
+  const candidates: number[] = [];
+  for (let i = 1; i < sceneNames.length; i++) {
+    if (i !== excludeIndex) candidates.push(i);
+  }
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+/** 投影窓1つ分をランダムなシーン・パレットへクロスフェードする(セミオートモード)。 */
+function randomizeEntry(entry: DisplayEntry) {
+  if (entry.crossfadingInstructionId) return; // クロスフェード実行中は今回の対象から外す
+
+  const sceneIndex = pickRandomSceneIndex(entry.currentLayer.sceneIndex);
+  const paletteIndex = Math.floor(Math.random() * PALETTE_PRESETS.length);
+  const palette = { ...PALETTE_PRESETS[paletteIndex].palette };
+
+  entry.selectEl.value = String(sceneIndex);
+  entry.paletteSelectEl.value = String(paletteIndex);
+  entry.mainColorInput.value = palette.main;
+  entry.subColorInput.value = palette.sub;
+
+  rebuildPendingLayer(entry, sceneIndex, palette);
+  startEntryCrossfade(entry);
+}
+
+/** 「Random」ボタンの処理(セミオートモード、[specs/011-semi-auto-mode.md](../specs/011-semi-auto-mode.md)参照)。
+ * 表示中の各投影窓を独立にランダム化し、Intensityも1回だけランダムに変更する。 */
+function randomizeAll() {
+  displays.forEach((entry) => randomizeEntry(entry));
+  setIntensity(Math.round(Math.random() * 90) / 10);
+}
+
 /** 「投影窓を追加」ボタンの処理。新規投影窓を開き、対応する行・レイヤー・イベントハンドラを組み立てる。 */
 function addDisplay() {
   const id = crypto.randomUUID();
@@ -472,8 +507,14 @@ function removeDisplay(id: string) {
   updateDisplaysEmptyVisibility();
 }
 
+updateDisplaysEmptyVisibility();
+
 addDisplayBtn.addEventListener("click", () => {
   addDisplay();
+});
+
+randomBtn.addEventListener("click", () => {
+  randomizeAll();
 });
 
 window.addEventListener("resize", () => {

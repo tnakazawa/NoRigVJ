@@ -56,5 +56,6 @@ UI表記は英語。
 | `Space` キー、「Trigger 1」ボタン | Trigger 1を発火(全投影窓共通)。対応するシーンが1つも表示されていなければボタンは無効([../specs/007-manual-trigger.md](../specs/007-manual-trigger.md)参照) |
 | Cmd右(`MetaRight`)/Ctrl右(`ControlRight`)、「Trigger 2」ボタン | Trigger 2を発火 |
 | Cmd左(`MetaLeft`)/Ctrl左(`ControlLeft`)、「Trigger 3」ボタン | Trigger 3を発火 |
+| 「Random」ボタン | セミオートモード([specs/011-semi-auto-mode.md](../specs/011-semi-auto-mode.md)参照)。表示中の各投影窓を独立にランダムなシーン(Blank除く、直前と同じシーンは選ばない)・ランダムな32色プリセットへクロスフェードし、Intensityも1回だけランダムに変更する。投影窓が1つもなければ無効化される |
 
 数字キー(1/2/3)によるシーン切替・トリガー発火は廃止済み(投影窓ごとにシーンが異なりうる中でシーン切替キーとして使うと「どの窓に効くか」が曖昧になるため、そもそもシーン切替用途では使っていない。トリガー用途としても、後日 Space/Cmd/Ctrl 割当に置き換えられた)。投影窓側では `F` キーでフルスクリーン切り替え。

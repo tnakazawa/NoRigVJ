@@ -76,9 +76,13 @@ You can save a per-display "scene + color palette" combination under a name. Sav
 
 Per-display scene selection, palette settings, and preset selection don't take effect just by choosing them — they all edit the "pending" content (what to switch to next), and the actual switch only happens when you press the "Crossfade" button. The display transitions smoothly from what's currently shown to the pending content over a set duration (adjustable via the panel's "Crossfade duration" slider, shared across all displays). The button is disabled when the pending content matches what's currently shown. Each display row always shows a "Next" preview next to the "Current" one, so you can check what the pending content looks like before committing.
 
+## Semi-auto mode (Random)
+
+Press the "Random" button in the panel to instantly randomize every display: each display independently picks a random scene (excluding Blank, and never repeating the scene it was just showing) and a random color palette preset, then crossfades to it using the current Crossfade duration. Intensity is also randomized (shared across all displays, since it's a single value). The button is disabled while no display is connected.
+
 ## Manual trigger effects
 
-One-shot effects the VJ fires with a button or key at just the right moment (an earlier attempt at automatic BPM detection was abandoned for insufficient accuracy — see below). There are three, "Trigger 1", "Trigger 2", and "Trigger 3", and pressing one makes every display (including the control UI's previews) react simultaneously. Which effects a scene has varies by scene, and the button is disabled while a scene with no matching effect is shown (30 of the 32 scenes support triggers; only Plasma Lava and Grid Terrain don't).
+One-shot effects the VJ fires with a button or key at just the right moment (an earlier attempt at automatic BPM detection was abandoned for insufficient accuracy — see below). There are three, "Trigger 1", "Trigger 2", and "Trigger 3", and pressing one makes every display (including the control UI's previews) react simultaneously. Which effects a scene has varies by scene, and the button is disabled while a scene with no matching effect is shown (30 of the 33 scenes support triggers; Blank, Plasma Lava, and Grid Terrain don't).
 
 - **Pulse Rings**: Trigger 1 = Ring Burst (spawns a new ring that bursts outward) / Trigger 2 = Color Flip (briefly reverses the coloring) / Trigger 3 = Radius Kick (briefly enlarges all rings)
 - **Bar Spectrum**: Trigger 1 = Height Kick (briefly stretches all bars) / Trigger 2 = Color Flip (briefly reverses the coloring) / Trigger 3 = White Flash (briefly flashes white)
