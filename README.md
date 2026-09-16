@@ -30,6 +30,7 @@ The control UI and each display window stay in sync via the browser's `Broadcast
 
 Every scene renders with WebGL (three.js). Each scene is one file under `src/scenes/`, and simply adding a file makes it automatically available in the scene picker (an earlier version mixed WebGL with Canvas 2D, but everything was unified onto WebGL for both looks and performance).
 
+- **Blank** — Renders nothing (a plain black screen). Useful for a blackout between scenes. Does not support the color palette.
 - **Pulse Rings** — Concentric rings (tori) that react to volume. Supports the color palette.
 - **Bar Spectrum** — 3D bars that ripple with the low end, colored main→sub by bar position. Supports the color palette.
 - **Noise Field** — A particle cloud that scatters with the high end. Supports the color palette.
@@ -65,7 +66,7 @@ Every scene renders with WebGL (three.js). Each scene is one file under `src/sce
 
 ## Color palette
 
-Each display can have its own main/sub two-color palette. Choose from 32 presets, or pick freely with the color pickers. The preset dropdown shows a main/sub color swatch to the left of each entry, so you can preview the colors without selecting them. While a palette-unsupported scene (Rainbow) is selected, the palette UI is disabled.
+Each display can have its own main/sub two-color palette. Choose from 32 presets, or pick freely with the color pickers. The preset dropdown shows a main/sub color swatch to the left of each entry, so you can preview the colors without selecting them. While a palette-unsupported scene (Blank, Rainbow) is selected, the palette UI is disabled.
 
 ## Scene presets
 
