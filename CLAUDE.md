@@ -30,6 +30,10 @@ npx tsc --noEmit  # 型チェックのみ実行
 
 READMEとCLAUDE.md群で「操作方法」のような事実が重複することはあるが、役割が違うので両方に書いてよい。READMEは使い方、CLAUDE.md側はその実装理由・ファイルパスまで踏み込む。ドキュメントが実装から乖離すると、後続の開発判断(このファイルを読む次のセッション含む)を誤らせる。「動くようになった」で終わらせず、関連ドキュメントの更新までを実装の一部とする。
 
+### ブランチ運用
+
+ユーザーから依頼された作業(仕様書の有無を問わない)に着手する前に、都度その作業専用のブランチを作成し、そこで実装・コミットする(`main`へ直接コミットしない)。ブランチ名は自由形式(例: `feature/xxx` / `fix/xxx`)。作業が完了しユーザーの確認が取れたら、Claude自身が`main`へマージまで行う(PR作成は不要)。
+
 ## アーキテクチャ概観
 
 - エントリは `control.html`(操作UI)/ `display.html`(投影窓)の2つ([specs/001-multi-window-projection.md](specs/001-multi-window-projection.md)参照)。シーン選択・パレット・プリセットは「予約」してから「クロスフェード実行」で反映する二段階UI([specs/006-scene-crossfade.md](specs/006-scene-crossfade.md)参照)。詳細(状態管理・BroadcastChannel・操作方法)は [src/CLAUDE.md](src/CLAUDE.md) を参照。
