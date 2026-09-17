@@ -101,7 +101,7 @@
         font-size: 12px;
         opacity: 0.7;
       }
-      .display-row-controls select {
+      select {
         background: #222;
         color: #eee;
         border: 1px solid #444;
@@ -109,7 +109,7 @@
         padding: 6px 8px;
         font: inherit;
       }
-      .display-row-controls select:disabled {
+      select:disabled {
         opacity: 0.4;
         cursor: not-allowed;
       }
@@ -291,6 +291,151 @@
         font-size: 12px;
         opacity: 0.8;
       }
+      .auto-mode-row {
+        display: flex;
+        gap: 12px;
+      }
+      .auto-mode-row label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+      }
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .modal-overlay[hidden] {
+        display: none;
+      }
+      /* section要素はdisplay:flexを明示指定しているため、[hidden]のUA既定(display:none)より
+         author側のこのルールが優先されてしまう(cascade originはUAよりauthorが常に優先されるため、
+         詳細度に関わらず起きる)。hiddenを効かせたいsectionには個別にdisplay:noneを明示する。 */
+      #auto-interval-section[hidden] {
+        display: none;
+      }
+      .modal {
+        background: #1a1a1a;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 16px;
+        width: min(860px, 94vw);
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .modal h2 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .modal-body {
+        display: flex;
+        gap: 12px;
+        min-height: 0;
+        flex: 1 1 auto;
+      }
+      .sequence-scene-list-wrap,
+      .sequence-steps-list-wrap {
+        flex: 1 1 50%;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .sequence-panel-label {
+        font-size: 11px;
+        opacity: 0.6;
+      }
+      .sequence-scene-list,
+      .sequence-steps-list {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        max-height: 50vh;
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 4px;
+      }
+      .sequence-scene-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 6px;
+      }
+      .sequence-add-btn {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+      }
+      .sequence-step-row {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px;
+        background: #222;
+        border: 1px solid #333;
+        border-radius: 4px;
+        margin-bottom: 4px;
+        cursor: grab;
+      }
+      .sequence-step-row.dragging {
+        opacity: 0.4;
+      }
+      .sequence-step-row-main {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .sequence-step-drag-handle {
+        opacity: 0.5;
+        flex: 0 0 auto;
+      }
+      .sequence-step-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: bold;
+      }
+      .sequence-step-remove-btn {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        font-size: 11px;
+      }
+      .sequence-step-row-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .sequence-step-timing {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        opacity: 0.85;
+        white-space: nowrap;
+      }
+      .sequence-step-timing input[type="range"] {
+        width: 70px;
+      }
     </style>
   </head>
   <body>
@@ -316,6 +461,14 @@
         </section>
         <hr />
         <section>
+          <strong>Auto mode</strong>
+          <div class="auto-mode-row">
+            <label><input type="radio" name="auto-mode" id="auto-mode-random" value="random" checked /> Random</label>
+            <label><input type="radio" name="auto-mode" id="auto-mode-sequence" value="sequence" /> Sequence</label>
+          </div>
+          <button id="edit-sequence-btn" hidden>Edit Sequence...</button>
+        </section>
+        <section id="auto-interval-section">
           <strong>Auto interval: <span id="auto-interval-value">15</span>s</strong>
           <input type="range" id="auto-interval" min="5" max="60" step="1" value="15" />
         </section>
@@ -333,6 +486,27 @@
           <button id="add-display" class="primary-btn">Add Display</button>
           <div id="status">Displays: 0 connected</div>
         </section>
+      </div>
+    </div>
+    <div id="sequence-modal" class="modal-overlay" hidden>
+      <div class="modal">
+        <h2>Edit Sequence</h2>
+        <div class="modal-body">
+          <div class="sequence-scene-list-wrap">
+            <div class="sequence-panel-label">All scenes (click + to add, can add the same scene more than once)</div>
+            <div id="sequence-scene-list" class="sequence-scene-list"></div>
+          </div>
+          <div class="sequence-steps-list-wrap">
+            <div class="sequence-panel-label">Sequence order (drag to reorder; each step has its own duration and crossfade time)</div>
+            <div id="sequence-steps-list" class="sequence-steps-list"></div>
+          </div>
+        </div>
+        <div class="preset-row">
+          <button id="sequence-preset-save">Save Sequence</button>
+          <select id="sequence-preset-select"></select>
+          <button id="sequence-preset-delete">Delete</button>
+        </div>
+        <button id="sequence-modal-close" class="primary-btn">Close</button>
       </div>
     </div>
     <script type="module" src="/src/control.ts"></script>

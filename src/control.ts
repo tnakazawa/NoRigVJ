@@ -5,6 +5,16 @@ import { createPaletteDropdown, type PaletteDropdown } from "./palette-dropdown"
 import { DEFAULT_PALETTE, PALETTE_PRESETS } from "./palettes";
 import { deletePreset, loadPresets, savePreset } from "./presets";
 import { sceneNames, sceneSupportsPalette, type Palette } from "./scenes";
+import {
+  DEFAULT_STEP_CROSSFADE_DURATION_MS,
+  DEFAULT_STEP_INTERVAL_MS,
+  deleteSequencePreset,
+  loadSequence,
+  loadSequencePresets,
+  saveSequence,
+  saveSequencePreset,
+  type SequenceStep,
+} from "./sequence";
 import { CHANNEL_NAME, type CrossfadeInstruction, type TriggerInstruction, type VJState } from "./shared";
 
 const displaysListEl = document.getElementById("displays-list")!;
@@ -16,9 +26,19 @@ const crossfadeDurationValueEl = document.getElementById("crossfade-duration-val
 const micToggleBtn = document.getElementById("mic-toggle") as HTMLButtonElement;
 const addDisplayBtn = document.getElementById("add-display") as HTMLButtonElement;
 const randomBtn = document.getElementById("random-btn") as HTMLButtonElement;
+const autoIntervalSection = document.getElementById("auto-interval-section") as HTMLElement;
 const autoIntervalSlider = document.getElementById("auto-interval") as HTMLInputElement;
 const autoIntervalValueEl = document.getElementById("auto-interval-value")!;
 const autoToggleBtn = document.getElementById("auto-toggle-btn") as HTMLButtonElement;
+const autoModeRadios = document.querySelectorAll<HTMLInputElement>('input[name="auto-mode"]');
+const editSequenceBtn = document.getElementById("edit-sequence-btn") as HTMLButtonElement;
+const sequenceModal = document.getElementById("sequence-modal") as HTMLElement;
+const sequenceSceneListEl = document.getElementById("sequence-scene-list")!;
+const sequenceStepsListEl = document.getElementById("sequence-steps-list")!;
+const sequenceModalCloseBtn = document.getElementById("sequence-modal-close") as HTMLButtonElement;
+const sequencePresetSaveBtn = document.getElementById("sequence-preset-save") as HTMLButtonElement;
+const sequencePresetSelectEl = document.getElementById("sequence-preset-select") as HTMLSelectElement;
+const sequencePresetDeleteBtn = document.getElementById("sequence-preset-delete") as HTMLButtonElement;
 const statusEl = document.getElementById("status")!;
 const triggerButtons = [
   document.getElementById("trigger-1") as HTMLButtonElement,
@@ -43,6 +63,16 @@ let fullAutoIntervalMs = 5 * 60 * 1000;
 let fullAutoEnabled = false;
 /** 次回自動実行の予定時刻(performance.now()と同じ時間軸)。fullAutoEnabled中のみ意味を持つ */
 let fullAutoNextFireAt = 0;
+
+// シーケンスモード([specs/013-sequence-mode.md](../specs/013-sequence-mode.md)参照)。
+// フルオートの実行内容を「ランダム」ではなく「決めた順」にするサブモード。各ステップが自分の
+// interval(表示時間)とcrossfadeDurationMs(切替時間)を個別に持つため、Sequence中はグローバルな
+// Auto interval/Crossfade durationは使わない(Randomモード専用になる)。
+let autoMode: "random" | "sequence" = "random";
+let sequenceSteps: SequenceStep[] = loadSequence().steps;
+/** 現在の再生位置(sequenceStepsのインデックス)。次回advanceSequence()は(sequenceIndex+1)%lengthへ進む。
+ * -1は「まだ一度も進んでいない」= 次回は0番目から始まる、という意味。 */
+let sequenceIndex = -1;
 
 // 各トリガーが最後に発火した時刻(performance.now()、未発火は0)。VJStateへは
 // 「直近に発火した1件」だけをidつきで送り、投影窓側はidの変化で新規発火を判定する
@@ -94,6 +124,10 @@ interface DisplayEntry {
   pendingLayer: Layer;
   /** クロスフェード実行中のみ値を持つ(投影窓へ送るinstruction idとしても使う) */
   crossfadingInstructionId: string | null;
+  /** 実行中のクロスフェードの所要時間(ミリ秒)。シーケンスモードは専用のCrossfade durationを
+   * 使うため、グローバルな`crossfadeDurationMs`とは別に、投影窓ごとに実際に使った値を憶えておく必要がある
+   * (VJStateへ送る際にこれを見る)。クロスフェード実行中のみ値を持つ。 */
+  crossfadingDurationMs: number | null;
   rowEl: HTMLElement;
   currentPreviewWrap: HTMLElement;
   pendingPreviewWrap: HTMLElement;
@@ -299,13 +333,15 @@ function createDisplayRow(label: number) {
   };
 }
 
-/** 指定した投影窓に対し、現在の表示から予約(pendingLayer)へのクロスフェードを開始する。 */
-function startEntryCrossfade(entry: DisplayEntry) {
+/** 指定した投影窓に対し、現在の表示から予約(pendingLayer)へのクロスフェードを開始する。
+ * @param durationMs 省略時はグローバルなCrossfade duration。シーケンスモードは専用の値を渡す。 */
+function startEntryCrossfade(entry: DisplayEntry, durationMs: number = crossfadeDurationMs) {
   if (entry.crossfadingInstructionId) return;
 
   const instructionId = crypto.randomUUID();
   const toLayer = entry.pendingLayer;
   entry.crossfadingInstructionId = instructionId;
+  entry.crossfadingDurationMs = durationMs;
 
   // 予約プレビュー欄が空白にならないよう、今から始めるクロスフェードと同じ内容の
   // 新しい予約レイヤーを先に用意しておく(このクロスフェードが完了したら「予約=現在」になるはずなので、
@@ -328,10 +364,11 @@ function startEntryCrossfade(entry: DisplayEntry) {
     toLayer,
     width,
     height,
-    crossfadeDurationMs,
+    durationMs,
     (finishedLayer) => {
       entry.currentLayer = finishedLayer;
       entry.crossfadingInstructionId = null;
+      entry.crossfadingDurationMs = null;
       updateCrossfadeButtonState(entry);
     },
   );
@@ -387,6 +424,350 @@ function setAutoInterval(seconds: number) {
   clampCrossfadeDurationToAutoInterval();
 }
 
+/** Sequenceモードで次に表示される予定のステップ(まだ`sequenceIndex`は進めない)。
+ * フルオートをONにする瞬間、次回発火までの待ち時間を決めるのに使う。 */
+function peekNextSequenceStep(): SequenceStep | null {
+  if (sequenceSteps.length === 0) return null;
+  return sequenceSteps[(sequenceIndex + 1) % sequenceSteps.length];
+}
+
+/** シーケンスモードの次のステップへ、全投影窓を同時に進める(投影窓ごとに独立ランダムなRandomとは異なり、
+ * 全投影窓が同じ再生位置を共有する)。そのステップに設定されたクロスフェード時間でクロスフェードする。
+ * @returns 実際に次のステップへ進めたら`true`。投影窓のいずれかがまだクロスフェード実行中で
+ * 進められなかった場合は`false`(呼び出し側は`sequenceIndex`を進めず、少し待って再試行する。
+ * ここで進めたことにしてしまうと、その投影窓は今回のステップを一度も表示しないまま
+ * 次のステップへ飛ばされてしまう)。 */
+function advanceSequence(): boolean {
+  if (sequenceSteps.length === 0) return false;
+  if ([...displays.values()].some((entry) => entry.crossfadingInstructionId)) return false;
+
+  sequenceIndex = (sequenceIndex + 1) % sequenceSteps.length;
+  const step = sequenceSteps[sequenceIndex];
+  const sceneIndex = sceneNames.indexOf(step.sceneName);
+  if (sceneIndex === -1) return true; // シーンファイルが削除された等、リスト作成後にシーン自体がなくなった場合の防御
+
+  const presetIndex = PALETTE_PRESETS.findIndex(
+    (p) => p.palette.main === step.palette.main && p.palette.sub === step.palette.sub,
+  );
+
+  displays.forEach((entry) => {
+    entry.selectEl.value = String(sceneIndex);
+    entry.paletteSelectEl.value = presetIndex >= 0 ? String(presetIndex) : "custom";
+    entry.mainColorInput.value = step.palette.main;
+    entry.subColorInput.value = step.palette.sub;
+
+    rebuildPendingLayer(entry, sceneIndex, { ...step.palette });
+    startEntryCrossfade(entry, step.crossfadeDurationMs);
+  });
+  return true;
+}
+
+/** Auto modeの切替・シーケンス編集ボタンの表示・Autoトグルの有効/無効を同期する。
+ * Sequenceモードでシーケンスが0件の間はAutoトグルを無効化する
+ * (投影窓が0個でも押せるRandomモードとは異なり、シーケンスが空では実行内容がないため)。
+ * 既にONの状態で0件になった場合は強制的にOFFへ戻す(disabledでOFFに戻せなくなる事故を避ける)。 */
+function updateAutoModeUI() {
+  editSequenceBtn.hidden = autoMode !== "sequence";
+  // SequenceモードはAuto interval(グローバル)を使わず各ステップ個別のintervalで進行するため、
+  // Auto intervalスライダー自体をSequence選択中は隠す(Randomモードでのみ意味を持つ)。
+  autoIntervalSection.hidden = autoMode === "sequence";
+  const sequenceEmpty = autoMode === "sequence" && sequenceSteps.length === 0;
+  if (sequenceEmpty && fullAutoEnabled) {
+    fullAutoEnabled = false;
+  }
+  autoToggleBtn.disabled = sequenceEmpty;
+  updateAutoToggleLabel(performance.now());
+}
+
+autoModeRadios.forEach((radio) => {
+  radio.addEventListener("change", () => {
+    if (!radio.checked) return;
+    autoMode = radio.value === "sequence" ? "sequence" : "random";
+    updateAutoModeUI();
+  });
+});
+
+/** モーダル内の「全シーン」一覧を描画する。「+」ボタンを押すたびにシーケンス末尾へ1ステップ追加する
+ * (同じシーンを何回追加してもよい)。 */
+function renderSequenceSceneList() {
+  sequenceSceneListEl.innerHTML = "";
+  sceneNames.forEach((name) => {
+    const item = document.createElement("div");
+    item.className = "sequence-scene-item";
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "sequence-add-btn";
+    addBtn.textContent = "+";
+    addBtn.title = `Add ${name}`;
+    addBtn.addEventListener("click", () => {
+      sequenceSteps.push({
+        id: crypto.randomUUID(),
+        sceneName: name,
+        palette: { ...DEFAULT_PALETTE },
+        intervalMs: DEFAULT_STEP_INTERVAL_MS,
+        crossfadeDurationMs: DEFAULT_STEP_CROSSFADE_DURATION_MS,
+      });
+      renderSequenceStepsList();
+    });
+
+    const label = document.createElement("span");
+    label.textContent = name;
+
+    item.append(addBtn, label);
+    sequenceSceneListEl.appendChild(item);
+  });
+}
+
+/** ドラッグ&ドロップ中、現在ドラッグ中の行のステップid(dragover先での並べ替え判定に使う)。 */
+let draggingStepId: string | null = null;
+
+/** モーダル内の「シーケンス順」ドラッグ&ドロップリストを、`sequenceSteps`の内容から描画し直す。
+ * 各行はシーン名+パレット選択に加え、そのステップ専用のInterval(表示時間)・Crossfade duration
+ * (切替時間)スライダーと削除ボタンを持つ。 */
+function renderSequenceStepsList() {
+  sequenceStepsListEl.innerHTML = "";
+  sequenceSteps.forEach((step) => {
+    const row = document.createElement("div");
+    row.className = "sequence-step-row";
+    // 行全体をdraggableにすると、行内のrangeスライダー(Duration/Crossfade)を操作しようとした
+    // 瞬間にブラウザが「行のドラッグ開始」と誤認識してしまう。ドラッグハンドル上でmousedownした
+    // ときだけ一時的にdraggableを立てることで、スライダー操作とドラッグ開始を区別する。
+    row.draggable = false;
+    row.dataset.stepId = step.id;
+
+    function findStep() {
+      return sequenceSteps.find((s) => s.id === step.id);
+    }
+
+    const main = document.createElement("div");
+    main.className = "sequence-step-row-main";
+
+    const handle = document.createElement("span");
+    handle.className = "sequence-step-drag-handle";
+    handle.textContent = "⋮⋮";
+    handle.addEventListener("mousedown", () => {
+      row.draggable = true;
+    });
+    handle.addEventListener("mouseup", () => {
+      row.draggable = false;
+    });
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "sequence-step-name";
+    nameEl.textContent = step.sceneName;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "sequence-step-remove-btn";
+    removeBtn.textContent = "✕";
+    removeBtn.title = "Remove";
+    removeBtn.addEventListener("click", () => {
+      sequenceSteps = sequenceSteps.filter((s) => s.id !== step.id);
+      renderSequenceStepsList();
+    });
+
+    main.append(handle, nameEl, removeBtn);
+
+    const controls = document.createElement("div");
+    controls.className = "sequence-step-row-controls";
+
+    const paletteDropdown = createPaletteDropdown(PALETTE_PRESETS);
+    const mainColorInput = document.createElement("input");
+    mainColorInput.type = "color";
+    mainColorInput.title = "Main color";
+    const subColorInput = document.createElement("input");
+    subColorInput.type = "color";
+    subColorInput.title = "Sub color";
+
+    const supportsPalette = sceneSupportsPalette[sceneNames.indexOf(step.sceneName)];
+    paletteDropdown.disabled = !supportsPalette;
+    mainColorInput.disabled = !supportsPalette;
+    subColorInput.disabled = !supportsPalette;
+
+    const presetIndex = PALETTE_PRESETS.findIndex(
+      (p) => p.palette.main === step.palette.main && p.palette.sub === step.palette.sub,
+    );
+    paletteDropdown.value = presetIndex >= 0 ? String(presetIndex) : "custom";
+    mainColorInput.value = step.palette.main;
+    subColorInput.value = step.palette.sub;
+
+    paletteDropdown.addEventListener("change", () => {
+      if (paletteDropdown.value === "custom") return;
+      const preset = PALETTE_PRESETS[Number(paletteDropdown.value)];
+      mainColorInput.value = preset.palette.main;
+      subColorInput.value = preset.palette.sub;
+      const target = findStep();
+      if (target) target.palette = { ...preset.palette };
+    });
+    mainColorInput.addEventListener("input", () => {
+      paletteDropdown.value = "custom";
+      const target = findStep();
+      if (target) target.palette = { main: mainColorInput.value, sub: subColorInput.value };
+    });
+    subColorInput.addEventListener("input", () => {
+      paletteDropdown.value = "custom";
+      const target = findStep();
+      if (target) target.palette = { main: mainColorInput.value, sub: subColorInput.value };
+    });
+
+    // このステップの表示時間(Interval)。範囲は既存のAuto intervalスライダーと同じ5〜60秒。
+    const intervalValueEl = document.createElement("span");
+    intervalValueEl.textContent = String(Math.round(step.intervalMs / 1000));
+    const intervalSlider = document.createElement("input");
+    intervalSlider.type = "range";
+    intervalSlider.min = "5";
+    intervalSlider.max = "60";
+    intervalSlider.step = "1";
+    intervalSlider.value = String(Math.round(step.intervalMs / 1000));
+    const intervalLabel = document.createElement("label");
+    intervalLabel.className = "sequence-step-timing";
+    intervalLabel.append(
+      document.createTextNode("Duration "),
+      intervalValueEl,
+      document.createTextNode("s"),
+      intervalSlider,
+    );
+
+    // このステップへ切り替わる際のCrossfade duration。Intervalを超えないようmax/値をクランプする。
+    const crossfadeValueEl = document.createElement("span");
+    crossfadeValueEl.textContent = (step.crossfadeDurationMs / 1000).toFixed(1);
+    const crossfadeSlider = document.createElement("input");
+    crossfadeSlider.type = "range";
+    crossfadeSlider.min = "0";
+    crossfadeSlider.max = String(step.intervalMs / 1000);
+    crossfadeSlider.step = "0.1";
+    crossfadeSlider.value = (step.crossfadeDurationMs / 1000).toFixed(1);
+    const crossfadeLabel = document.createElement("label");
+    crossfadeLabel.className = "sequence-step-timing";
+    crossfadeLabel.append(
+      document.createTextNode("Crossfade "),
+      crossfadeValueEl,
+      document.createTextNode("s"),
+      crossfadeSlider,
+    );
+
+    intervalSlider.addEventListener("input", () => {
+      const seconds = Number(intervalSlider.value);
+      intervalValueEl.textContent = String(seconds);
+      const target = findStep();
+      if (!target) return;
+      target.intervalMs = seconds * 1000;
+      crossfadeSlider.max = String(seconds);
+      if (target.crossfadeDurationMs > target.intervalMs) {
+        target.crossfadeDurationMs = target.intervalMs;
+        crossfadeSlider.value = String(seconds);
+        crossfadeValueEl.textContent = seconds.toFixed(1);
+      }
+    });
+    crossfadeSlider.addEventListener("input", () => {
+      const seconds = Number(crossfadeSlider.value);
+      crossfadeValueEl.textContent = seconds.toFixed(1);
+      const target = findStep();
+      if (target) target.crossfadeDurationMs = Math.round(seconds * 1000);
+    });
+
+    controls.append(paletteDropdown.el, mainColorInput, subColorInput, intervalLabel, crossfadeLabel);
+    row.append(main, controls);
+
+    row.addEventListener("dragstart", () => {
+      draggingStepId = step.id;
+      row.classList.add("dragging");
+    });
+    row.addEventListener("dragend", () => {
+      draggingStepId = null;
+      row.draggable = false;
+      row.classList.remove("dragging");
+      syncSequenceStepsFromDom();
+    });
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      if (!draggingStepId || draggingStepId === step.id) return;
+      const draggingEl = sequenceStepsListEl.querySelector<HTMLElement>(
+        `.sequence-step-row[data-step-id="${CSS.escape(draggingStepId)}"]`,
+      );
+      if (!draggingEl) return;
+      const rect = row.getBoundingClientRect();
+      const before = e.clientY - rect.top < rect.height / 2;
+      sequenceStepsListEl.insertBefore(draggingEl, before ? row : row.nextSibling);
+    });
+
+    sequenceStepsListEl.appendChild(row);
+  });
+}
+
+/** ドラッグ&ドロップ後のDOM順序から`sequenceSteps`配列を作り直す(ドラッグ操作自体はDOM上で完結させ、
+ * 完了時にまとめて配列へ反映する)。idで識別するため、同じシーンが複数ステップにあっても正しく並べ替わる。 */
+function syncSequenceStepsFromDom() {
+  const order = [...sequenceStepsListEl.querySelectorAll<HTMLElement>(".sequence-step-row")].map(
+    (el) => el.dataset.stepId!,
+  );
+  sequenceSteps = order.map((id) => sequenceSteps.find((s) => s.id === id)!);
+}
+
+/** シーケンスプリセットselectの選択肢を、`localStorage` の最新内容で作り直す。可能なら選択中の値を維持する。 */
+function populateSequencePresetSelect() {
+  const presets = loadSequencePresets();
+  const prevValue = sequencePresetSelectEl.value;
+  sequencePresetSelectEl.innerHTML = "";
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = presets.length === 0 ? "(No saved sequences)" : "Select sequence";
+  sequencePresetSelectEl.appendChild(placeholder);
+
+  presets.forEach((preset) => {
+    const opt = document.createElement("option");
+    opt.value = preset.id;
+    opt.textContent = preset.name;
+    sequencePresetSelectEl.appendChild(opt);
+  });
+
+  if ([...sequencePresetSelectEl.options].some((o) => o.value === prevValue)) {
+    sequencePresetSelectEl.value = prevValue;
+  }
+}
+
+editSequenceBtn.addEventListener("click", () => {
+  renderSequenceSceneList();
+  renderSequenceStepsList();
+  populateSequencePresetSelect();
+  sequenceModal.hidden = false;
+});
+
+sequenceModalCloseBtn.addEventListener("click", () => {
+  syncSequenceStepsFromDom();
+  sequenceModal.hidden = true;
+  saveSequence({ steps: sequenceSteps });
+  sequenceIndex = -1; // 内容が変わった可能性があるため、次回は先頭から
+  updateAutoModeUI();
+});
+
+sequencePresetSaveBtn.addEventListener("click", () => {
+  syncSequenceStepsFromDom(); // ドラッグ後の最新順序を確実に反映してから保存する
+  const defaultName = `Sequence (${sequenceSteps.length} step${sequenceSteps.length === 1 ? "" : "s"})`;
+  const name = prompt("Sequence name", defaultName);
+  if (!name) return;
+  saveSequencePreset(name, sequenceSteps);
+  populateSequencePresetSelect();
+});
+
+sequencePresetSelectEl.addEventListener("change", () => {
+  const presetId = sequencePresetSelectEl.value;
+  if (!presetId) return;
+  const preset = loadSequencePresets().find((p) => p.id === presetId);
+  if (!preset) return;
+  sequenceSteps = preset.steps.map((s) => ({ ...s, palette: { ...s.palette } }));
+  renderSequenceStepsList();
+});
+
+sequencePresetDeleteBtn.addEventListener("click", () => {
+  const presetId = sequencePresetSelectEl.value;
+  if (!presetId) return;
+  deleteSequencePreset(presetId);
+  populateSequencePresetSelect();
+});
+
 /** ミリ秒を "mm:ss" 形式にする(フルオートの残り時間表示用)。 */
 function formatMmSs(ms: number): string {
   const totalSec = Math.max(0, Math.ceil(ms / 1000));
@@ -419,8 +800,15 @@ autoToggleBtn.addEventListener("click", () => {
     fullAutoEnabled = false;
   } else {
     fullAutoEnabled = true;
-    fullAutoNextFireAt = performance.now() + fullAutoIntervalMs;
-    clampCrossfadeDurationToAutoInterval();
+    if (autoMode === "sequence") {
+      // ONにした瞬間に最初のステップへすぐ切り替え、そのステップのintervalが経過したら次へ進む。
+      const next = peekNextSequenceStep();
+      const advanced = advanceSequence();
+      fullAutoNextFireAt = performance.now() + (advanced ? (next ? next.intervalMs : DEFAULT_STEP_INTERVAL_MS) : 100);
+    } else {
+      fullAutoNextFireAt = performance.now() + fullAutoIntervalMs;
+      clampCrossfadeDurationToAutoInterval();
+    }
   }
   updateAutoToggleLabel(performance.now());
 });
@@ -468,6 +856,7 @@ function addDisplay() {
     currentLayer,
     pendingLayer,
     crossfadingInstructionId: null,
+    crossfadingDurationMs: null,
     rowEl,
     currentPreviewWrap,
     pendingPreviewWrap,
@@ -617,7 +1006,7 @@ async function toggleMic() {
 setIntensity(manualIntensity);
 setCrossfadeDuration(Number(crossfadeDurationSlider.value));
 setAutoInterval(Number(autoIntervalSlider.value));
-updateAutoToggleLabel(performance.now());
+updateAutoModeUI();
 
 intensitySlider.addEventListener("input", () => {
   setIntensity(Number(intensitySlider.value));
@@ -698,8 +1087,16 @@ function tick() {
 
   const now = performance.now();
   if (fullAutoEnabled && now >= fullAutoNextFireAt) {
-    randomizeAll();
-    fullAutoNextFireAt = now + fullAutoIntervalMs;
+    if (autoMode === "sequence") {
+      const next = peekNextSequenceStep();
+      const advanced = advanceSequence();
+      // 投影窓がまだクロスフェード中で進められなかった場合は、少し後で再試行する
+      // (このステップを一度も表示しないまま次へ飛ばしてしまう事故を防ぐため)。
+      fullAutoNextFireAt = now + (advanced ? (next ? next.intervalMs : DEFAULT_STEP_INTERVAL_MS) : 100);
+    } else {
+      randomizeAll();
+      fullAutoNextFireAt = now + fullAutoIntervalMs;
+    }
   }
   updateAutoToggleLabel(now);
 
@@ -723,7 +1120,7 @@ function tick() {
         id: entry.crossfadingInstructionId,
         toSceneName: sceneNames[entry.pendingLayer.sceneIndex],
         toPalette: entry.pendingLayer.palette,
-        durationMs: crossfadeDurationMs,
+        durationMs: entry.crossfadingDurationMs ?? crossfadeDurationMs,
       };
     }
   });

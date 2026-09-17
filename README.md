@@ -82,7 +82,12 @@ Press the "Random" button in the panel to instantly randomize every display: eac
 
 ## Full-auto mode
 
-Set the "Auto interval" slider (5-60 seconds) and press the toggle button in the panel to have the app repeat the semi-auto randomization above automatically, without pressing "Random" yourself. The button label shows what clicking it will do: "Auto: ON" when it's off, and "Auto: OFF (next in mm:ss)" — counting down to the next automatic switch — while it's running. The Crossfade duration is never allowed to exceed the Auto interval (so a crossfade always finishes before the next automatic switch): it's automatically shortened to match whenever you change the Auto interval, turn full-auto on, or adjust the Crossfade duration while full-auto is on. Manually pressing a display's "Crossfade" button or the "Random" button turns full-auto off; a manual scene reservation, palette change, preset recall, Trigger, or Intensity/Crossfade duration adjustment does not. The toggle stays enabled even with no displays connected.
+Press the toggle button in the panel to have the app automatically repeat a switch on a timer, without touching anything yourself. Turning it on switches immediately (it doesn't wait for the first interval to elapse before doing anything). The button label shows what clicking it will do: "Auto: ON" when it's off, and "Auto: OFF (next in mm:ss)" — counting down to the next automatic switch — while it's running. Manually pressing a display's "Crossfade" button or the "Random" button turns full-auto off; a manual scene reservation, palette change, preset recall, Trigger, Auto mode change, or Intensity/Crossfade duration adjustment does not. The toggle stays enabled even with no displays connected (except, see below, while Sequence mode has an empty sequence).
+
+The "Auto mode" radio buttons choose what full-auto actually does:
+
+- **Random** (default) — repeats the semi-auto randomization above: each display independently picks a random scene and palette. Set the "Auto interval" slider (5-60 seconds) to control how often. The Crossfade duration is never allowed to exceed the Auto interval; it's automatically shortened to match whenever you change the Auto interval, turn full-auto on, or adjust the Crossfade duration while full-auto is on.
+- **Sequence** — steps through a fixed, user-defined order instead of picking randomly. The "Auto interval" slider is hidden in this mode, since each step sets its own timing instead. Click "Edit Sequence..." to open the editor: click "+" next to any scene to append it to the sequence (the same scene can be added more than once), drag the list on the right to reorder it, and pick a color palette for each step individually. Every step also has its own "Duration" (how long it stays on screen, 5-60 seconds) and "Crossfade" time (how long the transition into it takes, capped at that step's Duration). The sequence you're currently editing is saved to the browser's `localStorage` and survives a reload. You can also save the whole thing under a name with "Save Sequence", recall a saved one from the dropdown next to it, or remove one with "Delete" — handy for switching between several prepared sequences. Unlike Random, every display advances together and shows the same scene and palette at the same moment — the point is showing everyone the same intended progression, not variety. The Auto toggle is disabled while the sequence is empty.
 
 ## Manual trigger effects
 
@@ -128,6 +133,10 @@ The UI is in English.
 | M / "Enable Mic" / "Disable Mic" button | Toggles the microphone on/off (shared across all displays) |
 | ← / → / "Intensity" slider | Adjusts effect intensity (shared across all displays) |
 | "Crossfade duration" slider | Adjusts the scene-switch transition time (shared across all displays) |
+| "Random" button | Semi-auto mode: instantly randomizes every display's scene, palette, and Intensity |
+| "Auto mode" radio buttons (Random / Sequence) | Chooses what full-auto does |
+| "Edit Sequence..." button (Sequence mode only) | Opens the sequence editor: click "+" to add a scene (repeats allowed), drag to reorder, set a palette plus its own Duration/Crossfade time per step, and save/recall/delete named sequences |
+| "Auto interval" slider (Random mode only) / "Auto" toggle button | Full-auto mode: repeats Random on a timer, or advances the Sequence using each step's own Duration |
 | Per-display scene selector | Reserves the next scene to switch to |
 | Per-display palette controls | Reserves the next colors to switch to, via preset or color pickers |
 | Per-display "Save Preset" / selector / "Delete" | Saves/deletes the current scene+palette under a name. Recalling one updates the reservation |
