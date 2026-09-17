@@ -134,17 +134,19 @@ The UI is in English.
 | ← / → / "Intensity" slider | Adjusts effect intensity (shared across all displays) |
 | "Crossfade duration" slider | Adjusts the scene-switch transition time (shared across all displays) |
 | "Random" button | Semi-auto mode: instantly randomizes every display's scene, palette, and Intensity |
-| "Auto mode" radio buttons (Random / Sequence) | Chooses what full-auto does |
+| "Auto mode" radio buttons (Random / Sequence) | Chooses what full-auto does. A status label next to the heading always shows the current state, e.g. "(ON / Random)" |
 | "Edit Sequence..." button (Sequence mode only) | Opens the sequence editor: click "+" to add a scene (repeats allowed), drag to reorder, set a palette plus its own Duration/Crossfade time per step, and save/recall/delete named sequences |
 | "Auto interval" slider (Random mode only) / "Auto" toggle button | Full-auto mode: repeats Random on a timer, or advances the Sequence using each step's own Duration |
 | Per-display scene selector | Reserves the next scene to switch to |
 | Per-display palette controls | Reserves the next colors to switch to, via preset or color pickers |
 | Per-display "Save Preset" / selector / "Delete" | Saves/deletes the current scene+palette under a name. Recalling one updates the reservation |
 | Per-display "Crossfade" button | Actually switches the display to the reserved content |
+| "Trigger" heading (above the Trigger 1/2/3 buttons) | Label only, matches the look of the other sections |
 | Space / "Trigger 1" button | Fires Trigger 1 (shared across all displays) |
 | Right Cmd (Mac) / Right Ctrl (Windows) / "Trigger 2" button | Fires Trigger 2 (shared across all displays) |
 | Left Cmd (Mac) / Left Ctrl (Windows) / "Trigger 3" button | Fires Trigger 3 (shared across all displays) |
 | F (on the display window) | Toggles fullscreen |
+| "?" button next to a control | Opens a modal with a short explanation of that control; close it with the "✕" button or by clicking outside |
 
 ## Build
 

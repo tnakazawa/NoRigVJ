@@ -291,6 +291,45 @@
         font-size: 12px;
         opacity: 0.8;
       }
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .section-header > :first-child {
+        flex: 1 1 auto;
+      }
+      .auto-mode-status {
+        font-weight: normal;
+        opacity: 0.7;
+        font-size: 12px;
+      }
+      .help-btn {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        font-size: 11px;
+        border-radius: 50%;
+        text-align: center;
+      }
+      .help-modal {
+        position: relative;
+        width: min(420px, 94vw);
+        padding-right: 36px;
+      }
+      .help-modal h2 {
+        padding-right: 20px;
+      }
+      .help-modal p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.6;
+      }
       .auto-mode-row {
         display: flex;
         gap: 12px;
@@ -448,20 +487,56 @@
       <div id="panel">
         <h1>NoRigVJ Control</h1>
         <section>
-          <strong>Intensity: <span id="intensity-value">1.0</span></strong>
+          <div class="section-header">
+            <strong>Intensity: <span id="intensity-value">1.0</span></strong>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="Intensity"
+              data-help="Controls the overall strength of the visuals (brightness and how intense the motion is). Higher values look more intense, lower values are more subdued."
+            >?</button>
+          </div>
           <input type="range" id="intensity" min="0" max="9" step="0.1" value="1" />
         </section>
         <section>
-          <strong>Crossfade duration: <span id="crossfade-duration-value">1.0</span>s</strong>
+          <div class="section-header">
+            <strong>Crossfade duration: <span id="crossfade-duration-value">1.0</span>s</strong>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="Crossfade duration"
+              data-help="Sets how long the crossfade (smooth transition) between scenes takes when switching."
+            >?</button>
+          </div>
           <input type="range" id="crossfade-duration" min="0" max="16" step="0.1" value="1" />
         </section>
         <hr />
         <section>
-          <button id="random-btn" class="primary-btn">Random</button>
+          <div class="section-header">
+            <button id="random-btn" class="primary-btn">Random</button>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="Random"
+              data-help="Picks a new random scene and palette for every display and crossfades to it over the Crossfade duration."
+            >?</button>
+          </div>
         </section>
         <hr />
         <section>
-          <strong>Auto mode</strong>
+          <div class="section-header">
+            <strong>Auto mode <span id="auto-mode-status" class="auto-mode-status"></span></strong>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="Auto mode"
+              data-help="Chooses how full-auto switches scenes. Random picks a new scene at random each time; Sequence follows the order and per-step timing you set in &quot;Edit Sequence...&quot;."
+            >?</button>
+          </div>
           <div class="auto-mode-row">
             <label><input type="radio" name="auto-mode" id="auto-mode-random" value="random" checked /> Random</label>
             <label><input type="radio" name="auto-mode" id="auto-mode-sequence" value="sequence" /> Sequence</label>
@@ -469,21 +544,67 @@
           <button id="edit-sequence-btn" hidden>Edit Sequence...</button>
         </section>
         <section id="auto-interval-section">
-          <strong>Auto interval: <span id="auto-interval-value">15</span>s</strong>
+          <div class="section-header">
+            <strong>Auto interval: <span id="auto-interval-value">15</span>s</strong>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="Auto interval"
+              data-help="When Auto mode is Random, sets how often (in seconds) full-auto switches to a new scene."
+            >?</button>
+          </div>
           <input type="range" id="auto-interval" min="5" max="60" step="1" value="15" />
         </section>
         <section>
-          <button id="auto-toggle-btn">Auto: ON</button>
+          <div class="section-header">
+            <button id="auto-toggle-btn">Auto: ON</button>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="Auto toggle"
+              data-help="Turns full-auto switching on/off. While on, scenes keep switching automatically according to the selected Auto mode."
+            >?</button>
+          </div>
         </section>
         <hr />
         <section>
+          <div class="section-header">
+            <strong>Trigger</strong>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="Trigger"
+              data-help="While pressed (or while the matching key is held), fires a temporary effect (beat pulse) on the visuals. The longer you hold it, the stronger the reaction."
+            >?</button>
+          </div>
           <button id="trigger-1" class="trigger-btn">Trigger 1 (Space)</button>
           <button id="trigger-2" class="trigger-btn">Trigger 2 (Cmd Right / Ctrl Right)</button>
           <button id="trigger-3" class="trigger-btn">Trigger 3 (Cmd Left / Ctrl Left)</button>
         </section>
         <section class="panel-footer">
-          <button id="mic-toggle">Enable Mic (M)</button>
-          <button id="add-display" class="primary-btn">Add Display</button>
+          <div class="section-header">
+            <button id="mic-toggle">Enable Mic (M)</button>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="Enable Mic"
+              data-help="Turns the microphone input on. Once enabled, the visuals react to volume and changes in the sound."
+            >?</button>
+          </div>
+          <div class="section-header">
+            <button id="add-display" class="primary-btn">Add Display</button>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="Add Display"
+              data-help="Adds a new projection window (Display). Each display added can output a different visual at the same time."
+            >?</button>
+          </div>
           <div id="status">Displays: 0 connected</div>
         </section>
       </div>
@@ -507,6 +628,13 @@
           <button id="sequence-preset-delete">Delete</button>
         </div>
         <button id="sequence-modal-close" class="primary-btn">Close</button>
+      </div>
+    </div>
+    <div id="help-modal" class="modal-overlay" hidden>
+      <div class="modal help-modal">
+        <button id="help-modal-close" class="close-btn" aria-label="Close">✕</button>
+        <h2 id="help-modal-title"></h2>
+        <p id="help-modal-text"></p>
       </div>
     </div>
     <script type="module" src="/src/control.ts"></script>

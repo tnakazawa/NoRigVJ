@@ -30,6 +30,7 @@ const autoIntervalSection = document.getElementById("auto-interval-section") as 
 const autoIntervalSlider = document.getElementById("auto-interval") as HTMLInputElement;
 const autoIntervalValueEl = document.getElementById("auto-interval-value")!;
 const autoToggleBtn = document.getElementById("auto-toggle-btn") as HTMLButtonElement;
+const autoModeStatusEl = document.getElementById("auto-mode-status")!;
 const autoModeRadios = document.querySelectorAll<HTMLInputElement>('input[name="auto-mode"]');
 const editSequenceBtn = document.getElementById("edit-sequence-btn") as HTMLButtonElement;
 const sequenceModal = document.getElementById("sequence-modal") as HTMLElement;
@@ -782,6 +783,8 @@ function updateAutoToggleLabel(now: number) {
   autoToggleBtn.textContent = fullAutoEnabled
     ? `Auto: OFF (next in ${formatMmSs(fullAutoNextFireAt - now)})`
     : "Auto: ON";
+  const modeLabel = autoMode === "sequence" ? "Sequence" : "Random";
+  autoModeStatusEl.textContent = `(${fullAutoEnabled ? "ON" : "OFF"} / ${modeLabel})`;
 }
 
 /** VJが手動でCrossfade/Randomボタンを押したときに呼ぶ。フルオートが有効なら解除する。 */
@@ -1162,3 +1165,23 @@ function renderPreviews() {
 }
 
 renderPreviews();
+
+// 各コントロールの「?」ボタン。押すとdata-help-title/data-helpの内容を共通のヘルプモーダルに表示する。
+const helpModal = document.getElementById("help-modal") as HTMLElement;
+const helpModalTitleEl = document.getElementById("help-modal-title")!;
+const helpModalTextEl = document.getElementById("help-modal-text")!;
+const helpModalCloseBtn = document.getElementById("help-modal-close") as HTMLButtonElement;
+
+document.querySelectorAll<HTMLButtonElement>(".help-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    helpModalTitleEl.textContent = btn.dataset.helpTitle ?? "";
+    helpModalTextEl.textContent = btn.dataset.help ?? "";
+    helpModal.hidden = false;
+  });
+});
+helpModalCloseBtn.addEventListener("click", () => {
+  helpModal.hidden = true;
+});
+helpModal.addEventListener("click", (event) => {
+  if (event.target === helpModal) helpModal.hidden = true;
+});
