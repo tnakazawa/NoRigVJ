@@ -17,9 +17,8 @@ const fragmentShader = `
   uniform float uAspect;
   uniform vec3 uMainColor;
   uniform vec3 uSubColor;
-  uniform float uInvert;
-  uniform float uZoom;
-  uniform float uFlash;
+  uniform float uPadX;
+  uniform float uPadY;
   varying vec2 vUv;
 
   void main() {
@@ -30,8 +29,10 @@ const fragmentShader = `
     vec2 aspectVec = vec2(uAspect, 1.0);
     vec2 p = (vUv - 0.5) * aspectVec;
 
-    // Trigger 2(Zoom): 発生中はグリッドを一時的に細かくする
-    float gridSize = 0.09 / (1.0 + uZoom * 1.5);
+    // FXパッドY: グリッドの細かさ(Zoomの連続版)。正で細かく、負で粗くする
+    // (分母を0.25以上にクランプし、gridSizeが0や負にならないようにする)
+    float zoomDenom = max(0.25, 1.0 + uPadY * 1.5);
+    float gridSize = 0.09 / zoomDenom;
     vec2 cell = floor(p / gridSize);
     vec2 cellCenter = (cell + 0.5) * gridSize;
     vec2 localPos = p - cellCenter;
@@ -44,13 +45,12 @@ const fragmentShader = `
     float d = length(localPos);
     float dotMask = smoothstep(radius, radius - 0.006, d);
 
-    // Trigger 1(Invert): 発生中はドット/背景の配色を入れ替える
-    vec3 dotColor = mix(uMainColor, uSubColor, uInvert);
-    vec3 bgColor = mix(uSubColor, uMainColor, uInvert);
+    // FXパッドX: ドット/背景の配色反転度合い(Invertの連続版)。中心からどちらへ動かしても
+    // 同じ効果になるよう絶対値を使う(0=通常、|1|=完全反転)
+    float invertAmount = abs(uPadX);
+    vec3 dotColor = mix(uMainColor, uSubColor, invertAmount);
+    vec3 bgColor = mix(uSubColor, uMainColor, invertAmount);
     vec3 color = mix(bgColor * 0.15, dotColor, dotMask);
-
-    // Trigger 3(Flash): 発生中は全体を白へ寄せる
-    color = mix(color, vec3(1.0), uFlash);
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -58,7 +58,7 @@ const fragmentShader = `
 
 /**
  * 格子状の円ドットが音声で拡縮する、印刷物のハーフトーン風グラフィックのシーン(WebGL)。
- * カラーパレット対応。手動トリガー3種対応。
+ * カラーパレット対応。FXパッド対応。
  */
 const createHalftoneDotsScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -68,7 +68,7 @@ const createHalftoneDotsScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Halftone Dots",
     supportsPalette: true,
-    triggerEffectNames: ["Invert", "Zoom", "Flash"],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -82,9 +82,8 @@ const createHalftoneDotsScene: SceneFactory = () => {
           uAspect: { value: 1 },
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
-          uInvert: { value: 0 },
-          uZoom: { value: 0 },
-          uFlash: { value: 0 },
+          uPadX: { value: 0 },
+          uPadY: { value: 0 },
         },
       });
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
@@ -97,9 +96,8 @@ const createHalftoneDotsScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
-      material.uniforms.uInvert.value = ctx.triggers[0] > 0.5 ? 1 : 0;
-      material.uniforms.uZoom.value = ctx.triggers[1];
-      material.uniforms.uFlash.value = ctx.triggers[2];
+      material.uniforms.uPadX.value = ctx.padX;
+      material.uniforms.uPadY.value = ctx.padY;
       ctx.renderer.render(renderScene, camera);
     },
   };

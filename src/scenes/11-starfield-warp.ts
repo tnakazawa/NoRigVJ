@@ -7,7 +7,7 @@ const PARTICLE_COUNT = 600;
 const Z_RANGE = 40;
 
 /**
- * 無数の星がカメラ手前へ流れ続けるワープ航法風のシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
+ * 無数の星がカメラ手前へ流れ続けるワープ航法風のシーン(WebGL)。カラーパレット対応。FXパッド対応。
  * Noise Field/Bloom Particlesと同じ「毎フレームBufferAttributeを書き換える」パーティクル実装だが、
  * 揺れではなく前方への一方向の流れが主役という点で差別化している。
  */
@@ -27,7 +27,7 @@ const createStarfieldWarpScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Starfield Warp",
     supportsPalette: true,
-    triggerEffectNames: ["Warp Speed", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
@@ -65,16 +65,19 @@ const createStarfieldWarpScene: SceneFactory = () => {
       const bass = Math.min(3, ctx.audio.bass);
       const volume = Math.min(2, ctx.audio.volume);
 
-      // Trigger 1(Warp Speed): 発生中は前進速度を大幅にブーストする
-      const warpBoost = ctx.triggers[0] * 6;
-      const speed = 3 + bass * 4 + warpBoost;
+      // FXパッドX: 前進速度への加算オフセット(Warp Speedの連続版)。正で大幅に加速し、
+      // 負で減速する(0を下回らないようクランプし、星が逆走しないようにする)
+      const warpBoost = ctx.padX * 6;
+      const speed = Math.max(0, 3 + bass * 4 + warpBoost);
 
       const dt = lastTime === null ? 0 : ctx.time - lastTime;
       lastTime = ctx.time;
       advanced += speed * dt;
 
-      // Trigger 2(Flash): 発生中は星を大きく白く光らせる
-      const flash = ctx.triggers[1];
+      // FXパッドY: 正で白く大きく光らせ、負で暗く小さく寄せる(Flashの連続版。符号で方向が変わる
+      // 対称式はNoise FieldのX軸と同じ考え方)
+      const flash = ctx.padY;
+      const toFlash = (c: number) => (flash >= 0 ? c + (1 - c) * flash : c * (1 + flash));
 
       const positionAttr = points.geometry.getAttribute("position") as THREE.BufferAttribute;
       const colorAttr = points.geometry.getAttribute("color") as THREE.BufferAttribute;
@@ -90,18 +93,15 @@ const createStarfieldWarpScene: SceneFactory = () => {
         positionAttr.setXYZ(i, x, y, z);
 
         const t = seeds[i];
-        let r = mr + (sr - mr) * t;
-        let g = mg + (sg - mg) * t;
-        let b = mb + (sb - mb) * t;
-        r += (1 - r) * flash;
-        g += (1 - g) * flash;
-        b += (1 - b) * flash;
-        colorAttr.setXYZ(i, r, g, b);
+        const r = mr + (sr - mr) * t;
+        const g = mg + (sg - mg) * t;
+        const b = mb + (sb - mb) * t;
+        colorAttr.setXYZ(i, toFlash(r), toFlash(g), toFlash(b));
       }
       positionAttr.needsUpdate = true;
       colorAttr.needsUpdate = true;
 
-      material.size = (0.1 + volume * 0.15) * (1 + flash * 2);
+      material.size = Math.max(0.02, (0.1 + volume * 0.15) * (1 + flash * 2));
 
       ctx.renderer.render(renderScene, camera);
     },

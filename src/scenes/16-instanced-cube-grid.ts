@@ -7,8 +7,9 @@ const CUBE_COUNT = GRID_SIZE * GRID_SIZE;
 const SPACING = 0.9;
 
 /**
- * 格子状に並んだ3Dキューブが音声で上下するシーン(WebGL)。カラーパレット対応。手動トリガー3種対応。
+ * 格子状に並んだ3Dキューブが音声で上下するシーン(WebGL)。カラーパレット対応。
  * Bar Spectrum(1次元配列のバー)の2次元グリッド版だが、都市のビル群のような俯瞰構図で見た目は大きく異なる。
+ * FXパッド対応。
  */
 const createInstancedCubeGridScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -20,7 +21,7 @@ const createInstancedCubeGridScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Instanced Cube Grid",
     supportsPalette: true,
-    triggerEffectNames: ["Height Kick", "Wave Pulse", "White Flash"],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -46,16 +47,16 @@ const createInstancedCubeGridScene: SceneFactory = () => {
       const bass = Math.min(2.5, ctx.audio.bass);
       const treble = Math.min(2.5, ctx.audio.treble);
 
-      // Trigger 1(Height Kick): 発生中は全キューブの高さに一時的なオフセットを加える
-      const heightKick = ctx.triggers[0] * 2.5;
-      // Trigger 2(Wave Pulse): 発生中は中心から外側へ伝わる波紋の振幅を大きく強める
-      const wavePulse = ctx.triggers[1] * 3;
-      // Trigger 3(White Flash): 発生中は配色を白へ寄せる
-      const whiteMix = ctx.triggers[2];
-
       const [mr, mg, mb] = hexToRgb(ctx.palette.main);
       const [sr, sg, sb] = hexToRgb(ctx.palette.sub);
       const half = (GRID_SIZE - 1) / 2;
+
+      // FXパッドX: 正で白へ、負で黒へ寄せる対称式(0で通常の配色、White Flashの連続版)
+      const whiteMix = ctx.padX;
+      const toFlash = (c: number) => (whiteMix >= 0 ? c + (1 - c) * whiteMix : c * (1 + whiteMix));
+      // FXパッドY: 全キューブの高さにオフセットを加える(正で伸びる、負で縮む方向、Height Kickの連続版)。
+      // 以前あったWave Pulse(波紋の振幅増幅)はHeight Kickと効果が似て重複するため今回は見送った
+      const heightKick = ctx.padY * 2.5;
 
       let i = 0;
       for (let gx = 0; gx < GRID_SIZE; gx++) {
@@ -66,7 +67,7 @@ const createInstancedCubeGridScene: SceneFactory = () => {
           const dist = Math.hypot(gx - half, gz - half) / half;
           const wave = Math.sin(dist * 6 - ctx.time * 2.5) * 0.5 + 0.5;
           const level = (bass * (1 - dist) + treble * dist) * wave;
-          const height = 0.3 + level * 3 + heightKick + wave * wavePulse;
+          const height = 0.3 + level * 3 + heightKick;
 
           dummy.position.set(x, height / 2 - 0.5, z);
           dummy.scale.set(1, Math.max(0.05, height), 1);
@@ -77,7 +78,7 @@ const createInstancedCubeGridScene: SceneFactory = () => {
           const r = mr + (sr - mr) * dist;
           const g = mg + (sg - mg) * dist;
           const b = mb + (sb - mb) * dist;
-          color.setRGB(r + (1 - r) * whiteMix, g + (1 - g) * whiteMix, b + (1 - b) * whiteMix);
+          color.setRGB(toFlash(r), toFlash(g), toFlash(b));
           instancedMesh.setColorAt(i, color);
           i++;
         }

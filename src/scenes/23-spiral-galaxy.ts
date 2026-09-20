@@ -6,9 +6,9 @@ const PARTICLE_COUNT = 500;
 const ARM_COUNT = 3;
 
 /**
- * 渦を巻くパーティクル銀河のシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
+ * 渦を巻くパーティクル銀河のシーン(WebGL)。カラーパレット対応。
  * Noise Field/Bloom Particles/Starfield Warpと同じパーティクル系だが、中心ほど速く回転する
- * 渦巻き状の配置という点で差別化している。
+ * 渦巻き状の配置という点で差別化している。FXパッド対応。
  */
 const createSpiralGalaxyScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -24,7 +24,7 @@ const createSpiralGalaxyScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Spiral Galaxy",
     supportsPalette: true,
-    triggerEffectNames: ["Spin Burst", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
@@ -67,10 +67,11 @@ const createSpiralGalaxyScene: SceneFactory = () => {
       const bass = Math.min(2, ctx.audio.bass);
       const volume = Math.min(2, ctx.audio.volume);
 
-      // Trigger 1(Spin Burst): 発生中は回転速度を一時的にブーストする
-      const spinBurst = ctx.triggers[0] * 4;
-      // Trigger 2(Flash): 発生中は白へ寄せる
-      const flash = ctx.triggers[1];
+      // FXパッドX: 回転速度にオフセットを加える(正で加速、負で逆回転。Spin Burstの連続版)
+      const spinBurst = ctx.padX * 3;
+      // FXパッドY: 白(正)/黒(負)へ寄せる対称式(Flashの連続版)
+      const flash = ctx.padY;
+      const toFlash = (c: number) => (flash >= 0 ? c + (1 - c) * flash : c * (1 + flash));
 
       const positionAttr = points.geometry.getAttribute("position") as THREE.BufferAttribute;
       const colorAttr = points.geometry.getAttribute("color") as THREE.BufferAttribute;
@@ -89,13 +90,10 @@ const createSpiralGalaxyScene: SceneFactory = () => {
 
         // 中心(main)から外側(sub)へ配色する
         const t = Math.min(1, r / 3.2);
-        let cr = mr + (sr - mr) * t;
-        let cg = mg + (sg - mg) * t;
-        let cb = mb + (sb - mb) * t;
-        cr += (1 - cr) * flash;
-        cg += (1 - cg) * flash;
-        cb += (1 - cb) * flash;
-        colorAttr.setXYZ(i, cr, cg, cb);
+        const cr = mr + (sr - mr) * t;
+        const cg = mg + (sg - mg) * t;
+        const cb = mb + (sb - mb) * t;
+        colorAttr.setXYZ(i, toFlash(cr), toFlash(cg), toFlash(cb));
       }
       positionAttr.needsUpdate = true;
       colorAttr.needsUpdate = true;

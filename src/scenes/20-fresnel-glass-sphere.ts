@@ -29,22 +29,28 @@ const fragmentShader = `
     vec3 normal = normalize(vNormal);
     // 視線と法線が直交に近いほど(輪郭に近いほど)1に近づく、古典的なフレネル近似
     float fresnel = pow(1.0 - clamp(dot(viewDir, normal), 0.0, 1.0), 4.5);
-    // Trigger 1(Glow Burst): 発生中は輪郭の発光を大幅に強める
-    fresnel = clamp(fresnel * (1.0 + uGlowBurst * 3.0), 0.0, 1.0);
+    // FXパッドX: 輪郭の発光を強める/弱める(正で強調、負で控えめに。Glow Burstの連続版)。
+    // 負方向は係数を緩め、下限もクランプして、少し左へ動かしただけで発光が完全に消えないようにしている
+    float glowFactor = uGlowBurst >= 0.0 ? 1.0 + uGlowBurst * 2.5 : 1.0 + uGlowBurst * 0.8;
+    fresnel = clamp(fresnel * max(0.15, glowFactor), 0.0, 1.0);
 
     vec3 core = uMainColor * 0.12;
-    // Trigger 2(Core Flash): 発生中は中心部も白く発光させる
-    core = mix(core, vec3(1.0), uCoreFlash);
+    // FXパッドY: 中心部を白(正)/黒(負)へ寄せる対称式(Core Flashの連続版)
+    if (uCoreFlash >= 0.0) {
+      core = core + (1.0 - core) * uCoreFlash;
+    } else {
+      core = core * (1.0 + uCoreFlash);
+    }
 
     vec3 color = mix(core, uSubColor, fresnel) * (0.6 + volume * 0.5);
-    float alpha = clamp(fresnel * 0.7 + 0.25 + uCoreFlash * 0.3, 0.0, 1.0);
+    float alpha = clamp(fresnel * 0.7 + 0.25 + abs(uCoreFlash) * 0.3, 0.0, 1.0);
     gl_FragColor = vec4(color, alpha);
   }
 `;
 
 /**
- * 輪郭がフレネル効果で光る半透明の球体のシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
- * Metaball Blobと形状(球)は近いが、変形ではなく透明感のある材質表現という点で差別化している。
+ * 輪郭がフレネル効果で光る半透明の球体のシーン(WebGL)。カラーパレット対応。
+ * Metaball Blobと形状(球)は近いが、変形ではなく透明感のある材質表現という点で差別化している。FXパッド対応。
  */
 const createFresnelGlassSphereScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -55,7 +61,7 @@ const createFresnelGlassSphereScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Fresnel Glass Sphere",
     supportsPalette: true,
-    triggerEffectNames: ["Glow Burst", "Core Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -83,14 +89,17 @@ const createFresnelGlassSphereScene: SceneFactory = () => {
       camera.updateProjectionMatrix();
 
       const bass = Math.min(2, ctx.audio.bass);
-      mesh.rotation.y = ctx.time * (0.2 + bass * 0.3);
-      mesh.rotation.x = ctx.time * 0.1;
+      // 操作なし・無音時でも単調にならないよう、回転速度を上げつつ、常時ゆっくり脈動させる
+      mesh.rotation.y = ctx.time * (0.4 + bass * 0.5);
+      mesh.rotation.x = ctx.time * 0.25;
+      const pulse = 1 + Math.sin(ctx.time * 1.4) * 0.08 + bass * 0.1;
+      mesh.scale.setScalar(pulse);
 
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
       material.uniforms.uVolume.value = ctx.audio.volume;
-      material.uniforms.uGlowBurst.value = ctx.triggers[0];
-      material.uniforms.uCoreFlash.value = ctx.triggers[1];
+      material.uniforms.uGlowBurst.value = ctx.padX;
+      material.uniforms.uCoreFlash.value = ctx.padY;
 
       ctx.renderer.render(renderScene, camera);
     },

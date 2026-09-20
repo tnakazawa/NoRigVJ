@@ -5,6 +5,8 @@ import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 const CURVE_POINTS = 48;
 const TUBULAR_SEGMENTS = 64;
 const RADIAL_SEGMENTS = 8;
+/** チューブの半径。黒ベタが多く貧弱だったため、以前の2倍(0.18→0.36)にした */
+const TUBE_RADIUS = 0.36;
 
 const vertexShader = `
   varying vec3 vNormal;
@@ -31,16 +33,17 @@ const fragmentShader = `
 
     // uv.xはチューブに沿った位置(0-1)。これでリボンの根元から先端へmain→subのグラデーションにする
     vec3 color = mix(uMainColor, uSubColor, vUv.x);
-    color = mix(color, vec3(1.0), uFlash);
+    // FXパッドX: 正で白へ、負で黒へ寄せる(0で通常の配色、Flashの連続版)
+    color = uFlash >= 0.0 ? mix(color, vec3(1.0), uFlash) : color * (1.0 + uFlash);
     gl_FragColor = vec4(color * (0.3 + diffuse * 0.8) * (0.7 + volume * 0.3), 1.0);
   }
 `;
 
 /**
- * チューブ状のリボンが波打つようにうねるシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
+ * チューブ状のリボンが波打つようにうねるシーン(WebGL)。カラーパレット対応。
  * 帯状の連続体という既存にない形状。毎フレーム`THREE.TubeGeometry`を制御点から作り直す
  * (頂点attributeの書き換えではなくジオメトリ自体を再構築する、他シーンには無いパターン。
- * セグメント数を抑えているため実用上問題にならない)。
+ * セグメント数を抑えているため実用上問題にならない)。FXパッド対応。
  */
 const createRibbonWaveScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -51,7 +54,7 @@ const createRibbonWaveScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Ribbon Wave",
     supportsPalette: true,
-    triggerEffectNames: ["Wave Kick", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -75,7 +78,7 @@ const createRibbonWaveScene: SceneFactory = () => {
         return new THREE.Vector3((t - 0.5) * 8, 0, 0);
       });
       const curve = new THREE.CatmullRomCurve3(initialPoints);
-      const geometry = new THREE.TubeGeometry(curve, TUBULAR_SEGMENTS, 0.18, RADIAL_SEGMENTS, false);
+      const geometry = new THREE.TubeGeometry(curve, TUBULAR_SEGMENTS, TUBE_RADIUS, RADIAL_SEGMENTS, false);
       mesh = new THREE.Mesh(geometry, material);
       renderScene.add(mesh);
     },
@@ -88,10 +91,11 @@ const createRibbonWaveScene: SceneFactory = () => {
       const treble = Math.min(2, ctx.audio.treble);
       const volume = Math.min(2, ctx.audio.volume);
 
-      // Trigger 1(Wave Kick): 発生中はうねりの振幅を大きく強める
-      const waveKick = ctx.triggers[0] * 1.5;
-      const ampY = 0.5 + bass * 0.6 + waveKick;
-      const ampZ = 0.3 + treble * 0.4 + waveKick * 0.6;
+      // FXパッドY: うねりの振幅を連続的に増減する(以前のWave Kickの連続版。正で大きく
+      // 波打ち、負で振幅が小さくなり平らに近づく量的エフェクトとして両方向に自然に振れる)
+      const waveKick = ctx.padY * 1.5;
+      const ampY = Math.max(0, 0.5 + bass * 0.6 + waveKick);
+      const ampZ = Math.max(0, 0.3 + treble * 0.4 + waveKick * 0.6);
 
       const points = Array.from({ length: CURVE_POINTS }, (_, i) => {
         const t = i / (CURVE_POINTS - 1);
@@ -105,7 +109,7 @@ const createRibbonWaveScene: SceneFactory = () => {
       mesh.geometry = new THREE.TubeGeometry(
         curve,
         TUBULAR_SEGMENTS,
-        0.18 + volume * 0.05,
+        TUBE_RADIUS + volume * 0.05,
         RADIAL_SEGMENTS,
         false,
       );
@@ -113,8 +117,7 @@ const createRibbonWaveScene: SceneFactory = () => {
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
       material.uniforms.uVolume.value = ctx.audio.volume;
-      // Trigger 2(Flash): 発生中は白へ寄せる
-      material.uniforms.uFlash.value = ctx.triggers[1];
+      material.uniforms.uFlash.value = ctx.padX;
 
       ctx.renderer.render(renderScene, camera);
     },

@@ -3,30 +3,24 @@ import { hexToRgb } from "./_shared/color-utils";
 import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 
 const RING_COUNT = 5;
-/** Ring Burst(Trigger 1)で生成したリングが消えるまでの寿命(秒) */
-const BURST_LIFETIME = 1.2;
 
-/** 音量に反応する同心円(トーラス)のシーン(WebGL)。カラーパレット対応。手動トリガー3種対応。 */
+/** 音量に反応する同心円(トーラス)のシーン(WebGL)。カラーパレット対応。FXパッド対応。 */
 const createPulseRingsScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
   const rings: THREE.Mesh[] = [];
   const ringMaterials: THREE.MeshBasicMaterial[] = [];
-  let ringGeometry: THREE.TorusGeometry;
-  // Trigger 1(Ring Burst)で動的に生成し、寿命が尽きたら破棄するリング
-  let burstRings: { mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; born: number }[] = [];
-  let lastTrigger0 = 0;
 
   const scene: Scene = {
     name: "Pulse Rings",
     supportsPalette: true,
-    triggerEffectNames: ["Ring Burst", "Color Flip", "Radius Kick"],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
       camera.position.z = 8;
 
-      ringGeometry = new THREE.TorusGeometry(1, 0.05, 16, 64);
+      const ringGeometry = new THREE.TorusGeometry(1, 0.05, 16, 64);
       for (let i = 0; i < RING_COUNT; i++) {
         const material = new THREE.MeshBasicMaterial({ transparent: true });
         const mesh = new THREE.Mesh(ringGeometry, material);
@@ -46,19 +40,12 @@ const createPulseRingsScene: SceneFactory = () => {
       const bass = Math.min(3, ctx.audio.bass) / 1.2;
       const volume = Math.min(1, ctx.audio.volume) / 1.2;
 
-      // Trigger 1の立ち上がり(発生の瞬間)を捉えてリングを1本追加する
-      if (ctx.triggers[0] > 0.9 && lastTrigger0 <= 0.9) {
-        const material = new THREE.MeshBasicMaterial({ transparent: true });
-        const mesh = new THREE.Mesh(ringGeometry, material);
-        renderScene.add(mesh);
-        burstRings.push({ mesh, material, born: ctx.time });
-      }
-      lastTrigger0 = ctx.triggers[0];
-
-      // Trigger 2(Color Flip): 発生中はメイン/サブの補間方向を反転させる
-      const flip = ctx.triggers[1] > 0.5;
-      // Trigger 3(Radius Kick): 発生中は全リングの半径に一時的なオフセットを加える
-      const radiusKick = ctx.triggers[2] * 1.5;
+      // FXパッドX: 中心(0)から左右どちらへ動かしても補間方向を反転させる(絶対値を使い、
+      // 左右対称にする。0=通常、|1|=完全反転)
+      const flip = Math.abs(ctx.padX);
+      // FXパッドY: 全リングの半径に一時的なオフセットを加える(正で膨らむ、負で縮む方向。
+      // 右下方向を強く感じられるよう、画面をはみ出すレベルまで大きく振れるようにしている)
+      const radiusKick = ctx.padY * 5;
 
       const [mr, mg, mb] = hexToRgb(ctx.palette.main);
       const [sr, sg, sb] = hexToRgb(ctx.palette.sub);
@@ -68,24 +55,11 @@ const createPulseRingsScene: SceneFactory = () => {
         const scale = 0.6 + (i * 0.5 + bass * 2.0) * (0.6 + 0.4 * Math.sin(t)) + radiusKick;
         rings[i].scale.setScalar(Math.max(0.05, scale));
 
-        const colorT = flip ? 1 - i / (RING_COUNT - 1) : i / (RING_COUNT - 1);
+        const baseT = i / (RING_COUNT - 1);
+        const colorT = baseT + (1 - 2 * baseT) * flip;
         ringMaterials[i].color.setRGB(mr + (sr - mr) * colorT, mg + (sg - mg) * colorT, mb + (sb - mb) * colorT);
         ringMaterials[i].opacity = 0.5 + volume * 0.5;
       }
-
-      burstRings = burstRings.filter((ring) => {
-        const age = ctx.time - ring.born;
-        if (age >= BURST_LIFETIME) {
-          renderScene.remove(ring.mesh);
-          ring.material.dispose();
-          return false;
-        }
-        const ageT = age / BURST_LIFETIME;
-        ring.mesh.scale.setScalar(0.6 + age * 3);
-        ring.material.opacity = 1 - ageT;
-        ring.material.color.setRGB(sr + (mr - sr) * ageT, sg + (mg - sg) * ageT, sb + (mb - sb) * ageT);
-        return true;
-      });
 
       ctx.renderer.render(renderScene, camera);
     },

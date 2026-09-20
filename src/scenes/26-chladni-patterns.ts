@@ -37,7 +37,8 @@ const fragmentShader = `
     vec2 aspectVec = vec2(uAspect, 1.0);
     vec2 p = vUv * aspectVec;
 
-    // Trigger 1(Mode Shift): 発生中は振動モード(n, m)を大きくジャンプさせ、模様を組み替える
+    // FXパッドY: 振動モード(n)を連続的にずらして模様を組み替える(以前のMode Shiftの連続版、
+    // 正負どちらの方向にもモードが動く量的エフェクトとしてuModeShiftをそのまま使う)
     float n = 3.0 + floor(bass * 2.0) + uModeShift * 6.0;
     float m = 2.0 + floor(treble * 2.0);
 
@@ -50,16 +51,16 @@ const fragmentShader = `
     float sand = 1.0 - smoothstep(0.0, edge, abs(v));
 
     vec3 color = mix(uMainColor * 0.08, uSubColor, sand);
-    // Trigger 2(Flash): 発生中は白へ寄せる
-    color = mix(color, vec3(1.0), uFlash);
+    // FXパッドX: 正で白へ、負で黒へ寄せる(0で通常の配色、Flashの連続版)
+    color = uFlash >= 0.0 ? mix(color, vec3(1.0), uFlash) : color * (1.0 + uFlash);
 
     gl_FragColor = vec4(color, 1.0);
   }
 `;
 
 /**
- * 振動する板の上で砂が集まるChladni図形のシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
- * 音楽的な定常波のパターンという、既存シーンにない題材。
+ * 振動する板の上で砂が集まるChladni図形のシーン(WebGL)。カラーパレット対応。
+ * 音楽的な定常波のパターンという、既存シーンにない題材。FXパッド対応。
  */
 const createChladniPatternsScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -69,7 +70,7 @@ const createChladniPatternsScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Chladni Patterns",
     supportsPalette: true,
-    triggerEffectNames: ["Mode Shift", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -99,8 +100,8 @@ const createChladniPatternsScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
-      material.uniforms.uModeShift.value = ctx.triggers[0];
-      material.uniforms.uFlash.value = ctx.triggers[1];
+      material.uniforms.uModeShift.value = ctx.padY;
+      material.uniforms.uFlash.value = ctx.padX;
       ctx.renderer.render(renderScene, camera);
     },
   };

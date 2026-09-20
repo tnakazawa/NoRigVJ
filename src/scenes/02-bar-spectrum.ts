@@ -7,7 +7,7 @@ const BAR_COUNT = 32;
 /**
  * 低域〜高域でうねるバーのシーン(WebGL)。左は低域、右は高域に反応する。カラーパレット対応
  * (バーの位置に応じてmain→subへ線形補間)。奥行き・簡単なライティングによる陰影はWebGLならでは。
- * 手動トリガー3種対応。
+ * FXパッド対応。
  */
 const createBarSpectrumScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -19,7 +19,7 @@ const createBarSpectrumScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Bar Spectrum",
     supportsPalette: true,
-    triggerEffectNames: ["Height Kick", "Color Flip", "White Flash"],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -50,12 +50,12 @@ const createBarSpectrumScene: SceneFactory = () => {
       const [mr, mg, mb] = hexToRgb(ctx.palette.main);
       const [sr, sg, sb] = hexToRgb(ctx.palette.sub);
 
-      // Trigger 2(Color Flip): 発生中はmain/subの補間方向を反転させる
-      const flip = ctx.triggers[1] > 0.5;
-      // Trigger 1(Height Kick): 発生中は全バーの高さに一時的なオフセットを加える
-      const heightKick = ctx.triggers[0] * 3;
-      // Trigger 3(White Flash): 発生中は配色を白へ寄せる
-      const whiteMix = ctx.triggers[2];
+      // FXパッドX: 中心(0)から左右どちらへ動かしても補間方向を反転させる(絶対値を使い、
+      // 左右対称にする。0=通常、|1|=完全反転)
+      const flip = Math.abs(ctx.padX);
+      // FXパッドY: 全バーの高さに一時的なオフセットを加える(正で伸びる、負で縮む方向。
+      // 右下方向を強く感じられるよう可動幅を大きく取っている)
+      const heightKick = ctx.padY * 6;
 
       for (let i = 0; i < BAR_COUNT; i++) {
         const n = Math.sin(i * 0.5 + ctx.time * 2) * 0.5 + 0.5;
@@ -66,19 +66,18 @@ const createBarSpectrumScene: SceneFactory = () => {
         const trebleWeight = Math.max(0, pos * 2 - 1);
         const midWeight = 1 - bassWeight - trebleWeight;
         const level = Math.min(2.5, (bass * bassWeight + mid * midWeight + treble * trebleWeight) * n);
-        const height = 0.4 + level * 4 + heightKick;
+        // 音声反応の可動幅も拡大(4→6)
+        const height = Math.max(0.05, 0.4 + level * 6 + heightKick);
 
-        dummy.position.set((pos - 0.5) * BAR_COUNT * 0.7, height / 2 - 1.5, 0);
+        // 底辺を画面下部寄り(-1.5→-3)にして、下部が寂しくならないようにしている
+        dummy.position.set((pos - 0.5) * BAR_COUNT * 0.7, height / 2 - 3, 0);
         dummy.scale.set(1, height, 1);
         dummy.updateMatrix();
         instancedMesh.setMatrixAt(i, dummy.matrix);
 
-        // バーの位置(0=左端/低域 〜 1=右端/高域)に応じてmain→subへ線形補間する(Color Flip発生中は反転)
-        const colorT = flip ? 1 - pos : pos;
-        const r = mr + (sr - mr) * colorT;
-        const g = mg + (sg - mg) * colorT;
-        const b = mb + (sb - mb) * colorT;
-        color.setRGB(r + (1 - r) * whiteMix, g + (1 - g) * whiteMix, b + (1 - b) * whiteMix);
+        // バーの位置(0=左端/低域 〜 1=右端/高域)に応じてmain→subへ線形補間する(FXパッドXで反転度合いを調整)
+        const colorT = pos + (1 - 2 * pos) * flip;
+        color.setRGB(mr + (sr - mr) * colorT, mg + (sg - mg) * colorT, mb + (sb - mb) * colorT);
         instancedMesh.setColorAt(i, color);
       }
       instancedMesh.instanceMatrix.needsUpdate = true;

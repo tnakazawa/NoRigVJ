@@ -259,9 +259,6 @@
         font: inherit;
         text-align: left;
       }
-      .trigger-btn {
-        padding: 16px 10px;
-      }
       button:hover {
         border-color: #888;
       }
@@ -475,6 +472,91 @@
       .sequence-step-timing input[type="range"] {
         width: 70px;
       }
+      #fx-pad-resize-handle {
+        flex: 0 0 auto;
+        height: 8px;
+        border-top: 1px solid #333;
+        cursor: row-resize;
+        touch-action: none;
+        position: relative;
+      }
+      #fx-pad-resize-handle::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 3px;
+        border-radius: 2px;
+        background: #444;
+      }
+      #fx-pad-resize-handle:hover::after,
+      #fx-pad-resize-handle.dragging::after {
+        background: #888;
+      }
+      #fx-pad-section {
+        flex: 0 0 auto;
+        min-height: 0;
+        padding: 4px 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .fx-pad-header {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      /* 残りスペースいっぱいを確保するコンテナ。container-type:sizeで内側から
+         cqw/cqh(コンテナ幅・高さの1%)を参照できるようにし、幅高さどちらの制約が
+         厳しくてもアスペクト比を保ったまま最大化する(imgの object-fit:contain 相当)。 */
+      #fx-pad-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        container-type: size;
+      }
+      #fx-pad {
+        position: relative;
+        width: min(100cqw, 100cqh * 1.8);
+        height: min(100cqh, 100cqw / 1.8);
+        border: 1px solid #444;
+        border-radius: 6px;
+        background: radial-gradient(ellipse at center, #1a1a1a 0%, #2d6a4f 100%);
+        touch-action: none;
+        cursor: crosshair;
+      }
+      #fx-pad.disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      #fx-pad-center {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        margin: -3px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        pointer-events: none;
+      }
+      #fx-pad-dot {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 14px;
+        height: 14px;
+        margin: -7px;
+        border-radius: 50%;
+        background: #eee;
+        border: 2px solid #111;
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
@@ -482,6 +564,25 @@
       <div id="main-area">
         <div id="displays-list">
           <div id="displays-empty">No displays yet. Click "Add Display" to start.</div>
+        </div>
+        <div id="fx-pad-resize-handle"></div>
+        <div id="fx-pad-section">
+          <div class="fx-pad-header">
+            <strong>FX Pad</strong>
+            <button
+              type="button"
+              class="help-btn"
+              aria-label="Help"
+              data-help-title="FX Pad"
+              data-help="Click or drag inside the box to apply an effect to every display in real time. The center is (0, 0) — the further you move toward an edge, the stronger the effect gets, and moving past center in the opposite direction flips it the other way (e.g. top-left is the negative of bottom-right). The X axis and Y axis each control a different effect (varies by scene). Releasing resets it to the center (off)."
+            >?</button>
+          </div>
+          <div id="fx-pad-body">
+            <div id="fx-pad">
+              <div id="fx-pad-center"></div>
+              <div id="fx-pad-dot" hidden></div>
+            </div>
+          </div>
         </div>
       </div>
       <div id="panel">
@@ -567,22 +668,6 @@
               data-help="Turns full-auto switching on/off. While on, scenes keep switching automatically according to the selected Auto mode."
             >?</button>
           </div>
-        </section>
-        <hr />
-        <section>
-          <div class="section-header">
-            <strong>Trigger</strong>
-            <button
-              type="button"
-              class="help-btn"
-              aria-label="Help"
-              data-help-title="Trigger"
-              data-help="While pressed (or while the matching key is held), fires a temporary effect (beat pulse) on the visuals. The longer you hold it, the stronger the reaction."
-            >?</button>
-          </div>
-          <button id="trigger-1" class="trigger-btn">Trigger 1 (Space)</button>
-          <button id="trigger-2" class="trigger-btn">Trigger 2 (Cmd Right / Ctrl Right)</button>
-          <button id="trigger-3" class="trigger-btn">Trigger 3 (Cmd Left / Ctrl Left)</button>
         </section>
         <section class="panel-footer">
           <div class="section-header">

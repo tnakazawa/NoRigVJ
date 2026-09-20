@@ -18,27 +18,24 @@ export interface SceneContext {
   audio: AudioLevels;
   palette: Palette;
   /**
-   * 手動トリガー(Trigger 1/2/3)それぞれの発生状況。発生時1になり、時間経過で0へ
-   * 指数関数的に減衰する。音声解析結果ではなくUI操作由来のため `AudioLevels` には含めない。
+   * FXパッド([specs/015-fx-pad.md](../../../specs/015-fx-pad.md)参照)の現在位置(共に-1〜1、
+   * 中心が(0,0))。パッドを押している間は押している座標(左上(-1,-1)、右下(1,1)に正規化)、
+   * 離れている間は共に0(中心と同じ、未操作状態)になる。値の符号がそのままエフェクトの向き
+   * (正方向/負方向)を表せるようにしている。音声解析結果ではなくUI操作由来のため
+   * `AudioLevels` には含めない。
    */
-  triggers: [number, number, number];
+  padX: number;
+  padY: number;
   renderer: WebGLRenderer;
 }
-
-/**
- * 手動トリガー(Trigger 1/2/3)にシーンが対応しているかを表す。インデックスがトリガー番号
- * (0 → Trigger 1、1 → Trigger 2、2 → Trigger 3)に対応し、対応する演出があるインデックスにのみ
- * ボタン表示用の短い名前(例: "Ring Burst")を入れる。未対応のインデックスは `undefined` にする。
- * シーン自体が手動トリガーに一切対応しない場合、このプロパティごと省略してよい。
- */
-export type TriggerEffectNames = [string | undefined, string | undefined, string | undefined];
 
 /** WebGL(three.js)で描画するシーン。 */
 export interface Scene {
   name: string;
   /** true の場合、投影窓のパレット設定(メイン/サブ2色)が render() の palette に渡り、UI上でも編集できる */
   supportsPalette: boolean;
-  triggerEffectNames?: TriggerEffectNames;
+  /** true の場合、FXパッド(padX/padY)に対応した演出を持つ。省略時はfalse扱い */
+  padSupported?: boolean;
   /** シェーダーコンパイル・RenderTarget確保など、シーンごとに初回のみ呼ばれる */
   init?(ctx: SceneContext): void;
   render(ctx: SceneContext): void;

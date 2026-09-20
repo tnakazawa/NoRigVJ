@@ -1,6 +1,6 @@
 import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 
-/** 何も描画しない空白シーン(WebGL)。暗転・シーン切替の合間に使う。カラーパレット・手動トリガーは非対応。 */
+/** 何も描画しない空白シーン(WebGL)。暗転・シーン切替の合間に使う。カラーパレット・FXパッドは非対応。 */
 const createBlankScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Blank",

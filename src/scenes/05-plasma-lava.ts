@@ -16,6 +16,8 @@ const fragmentShader = `
   uniform float uBass;
   uniform float uTreble;
   uniform float uAspect;
+  uniform float uPadX;
+  uniform float uPadY;
   uniform vec3 uMainColor;
   uniform vec3 uSubColor;
   varying vec2 vUv;
@@ -30,9 +32,10 @@ const fragmentShader = `
     vec2 aspectVec = vec2(uAspect, 1.0);
     vec2 p = (vUv - 0.5) * aspectVec;
 
-    // 古典的なプラズマ効果: 複数方向のsin波を合成する。bassでうねりの速さ、trebleで模様の細かさを変える
+    // 古典的なプラズマ効果: 複数方向のsin波を合成する。bassでうねりの速さ、trebleで模様の細かさを変える。
+    // FXパッドX: 模様の細かさ(周波数)に正負のオフセットを加える(正で細かく、負で粗く)
     float speed = uTime * (0.5 + bass * 1.5);
-    float freq = 3.0 + treble * 6.0;
+    float freq = max(0.5, 3.0 + treble * 6.0 + uPadX * 4.0);
 
     float v = 0.0;
     v += sin(p.x * freq + speed);
@@ -42,12 +45,13 @@ const fragmentShader = `
     v = v * 0.25 + 0.5; // -2〜2 の範囲を 0-1 に正規化
 
     vec3 color = mix(uMainColor, uSubColor, v);
-    float brightness = 0.4 + volume * 0.8;
+    // FXパッドY: 明るさに正負のオフセットを加える(正で明るく、負で暗く)
+    float brightness = clamp(0.4 + volume * 0.8 + uPadY * 0.5, 0.05, 2.0);
     gl_FragColor = vec4(color * brightness, 1.0);
   }
 `;
 
-/** 複数のsin波を合成した古典的プラズマ模様のシーン(WebGL)。カラーパレット対応。 */
+/** 複数のsin波を合成した古典的プラズマ模様のシーン(WebGL)。カラーパレット対応。FXパッド対応。 */
 const createPlasmaLavaScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
   let camera: THREE.OrthographicCamera;
@@ -56,6 +60,7 @@ const createPlasmaLavaScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Plasma Lava",
     supportsPalette: true,
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -68,6 +73,8 @@ const createPlasmaLavaScene: SceneFactory = () => {
           uBass: { value: 0 },
           uTreble: { value: 0 },
           uAspect: { value: 1 },
+          uPadX: { value: 0 },
+          uPadY: { value: 0 },
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
         },
@@ -81,6 +88,8 @@ const createPlasmaLavaScene: SceneFactory = () => {
       material.uniforms.uBass.value = ctx.audio.bass;
       material.uniforms.uTreble.value = ctx.audio.treble;
       material.uniforms.uAspect.value = ctx.width / ctx.height;
+      material.uniforms.uPadX.value = ctx.padX;
+      material.uniforms.uPadY.value = ctx.padY;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
       ctx.renderer.render(renderScene, camera);

@@ -6,27 +6,34 @@ const BOID_COUNT = 70;
 const BOUNDS = 3;
 const NEIGHBOR_RADIUS = 0.9;
 const SEPARATION_RADIUS = 0.35;
-const MAX_SPEED = 1.8;
+const MAX_SPEED = 3.2;
+/** Gather(結合)時に近傍のboid同士を結ぶ線の最大本数(頂点バッファの上限確保用) */
+const MAX_LINES = 260;
 
 /**
- * 鳥や魚の群れのように自律的に動くパーティクル群のシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
+ * 鳥や魚の群れのように自律的に動くパーティクル群のシーン(WebGL)。カラーパレット対応。
  * 分離・整列・結合の3ルール(boidsアルゴリズム)で速度を毎フレーム更新し続ける、既存シーンにない
  * 「群知能」的な動き。他シーンと違い、位置・速度を時刻から再計算せず前フレームの状態を積み上げる。
+ * FXパッド対応。
  */
 const createFlockingBoidsScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
   let points: THREE.Points;
   let material: THREE.PointsMaterial;
+  let lineSegments: THREE.LineSegments;
+  let lineMaterial: THREE.LineBasicMaterial;
   // 各boidの位置・速度(前フレームの状態を保持し続ける、他シーンには無いパターン)
   let positions: Float32Array;
   let velocities: Float32Array;
   let lastTime: number | null = null;
+  // Gather時の接続線用バッファ(毎フレームのGC負荷を避けるため使い回す)
+  const linePositions = new Float32Array(MAX_LINES * 2 * 3);
 
   const scene: Scene = {
     name: "Flocking Boids",
     supportsPalette: true,
-    triggerEffectNames: ["Scatter", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
@@ -57,6 +64,14 @@ const createFlockingBoidsScene: SceneFactory = () => {
       });
       points = new THREE.Points(geometry, material);
       renderScene.add(points);
+
+      // Gather(結合)時、近傍のboid同士を線で結んで見せる(分離・結合の違いを視覚的に区別する)
+      const lineGeometry = new THREE.BufferGeometry();
+      lineGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(MAX_LINES * 2 * 3), 3));
+      lineGeometry.setDrawRange(0, 0);
+      lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 });
+      lineSegments = new THREE.LineSegments(lineGeometry, lineMaterial);
+      renderScene.add(lineSegments);
     },
     render(ctx: SceneContext) {
       camera.aspect = ctx.width / ctx.height;
@@ -66,13 +81,19 @@ const createFlockingBoidsScene: SceneFactory = () => {
       const bass = Math.min(2, ctx.audio.bass);
       const volume = Math.min(2, ctx.audio.volume);
 
-      // Trigger 1(Scatter): 発生中は分離力を大幅に強め、群れを散らす
-      const scatter = ctx.triggers[0];
-      // Trigger 2(Flash): 発生中は白へ寄せる
-      const flash = ctx.triggers[1];
+      // FXパッドY: 正で分離力を強めて群れを散らす(Scatterの連続版)、負で分離を弱め結合を
+      // 強めて群れをより密集させる(Scatterと対になる「Gather」方向、量的エフェクトとして1軸に統合)
+      const scatter = Math.max(0, ctx.padY);
+      const gather = Math.max(0, -ctx.padY);
+      // FXパッドX: 正で白へ、負で黒へ寄せる(0で通常の配色、Flashの連続版)
+      const flash = ctx.padX;
 
       const dt = lastTime === null ? 0 : Math.min(0.1, ctx.time - lastTime);
       lastTime = ctx.time;
+
+      // Gather(結合)が強いときだけ、近傍のboid同士を線でつないで見せる
+      // (分離との違いが見た目でも分かるようにするため)
+      let lineCount = 0;
 
       // O(n^2)の近傍探索。BOID_COUNT=70程度なら毎フレーム十分高速。
       for (let i = 0; i < BOID_COUNT; i++) {
@@ -111,6 +132,16 @@ const createFlockingBoidsScene: SceneFactory = () => {
               sepY -= dy / dist;
               sepZ -= dz / dist;
             }
+            if (gather > 0.05 && j > i && lineCount < MAX_LINES) {
+              const base = lineCount * 6;
+              linePositions[base] = ix;
+              linePositions[base + 1] = iy;
+              linePositions[base + 2] = iz;
+              linePositions[base + 3] = positions[j * 3];
+              linePositions[base + 4] = positions[j * 3 + 1];
+              linePositions[base + 5] = positions[j * 3 + 2];
+              lineCount++;
+            }
           }
         }
 
@@ -126,10 +157,12 @@ const createFlockingBoidsScene: SceneFactory = () => {
           cohY = cohY / neighborCount - iy;
           cohZ = cohZ / neighborCount - iz;
 
-          const separationForce = 1.5 + scatter * 6;
-          vx += (sepX * separationForce + aliX * 0.5 + cohX * 0.3) * dt;
-          vy += (sepY * separationForce + aliY * 0.5 + cohY * 0.3) * dt;
-          vz += (sepZ * separationForce + aliZ * 0.5 + cohZ * 0.3) * dt;
+          // 無操作時でも動きが単調にならないよう、各力の基準値を全体的に強めている
+          const separationForce = 2.2 + scatter * 7 - gather * 1.2;
+          const cohesionForce = 0.5 + gather * 1.8;
+          vx += (sepX * separationForce + aliX * 0.9 + cohX * cohesionForce) * dt;
+          vy += (sepY * separationForce + aliY * 0.9 + cohY * cohesionForce) * dt;
+          vz += (sepZ * separationForce + aliZ * 0.9 + cohZ * cohesionForce) * dt;
         }
 
         // 境界を超えたら中心へ戻す力を加える
@@ -165,18 +198,30 @@ const createFlockingBoidsScene: SceneFactory = () => {
             velocities[i * 3] ** 2 + velocities[i * 3 + 1] ** 2 + velocities[i * 3 + 2] ** 2,
           ) / MAX_SPEED;
         const t = Math.min(1, speed);
-        let r = mr + (sr - mr) * t;
-        let g = mg + (sg - mg) * t;
-        let b = mb + (sb - mb) * t;
-        r += (1 - r) * flash;
-        g += (1 - g) * flash;
-        b += (1 - b) * flash;
+        const toFlash = (c: number) => (flash >= 0 ? c + (1 - c) * flash : c * (1 + flash));
+        const r = toFlash(mr + (sr - mr) * t);
+        const g = toFlash(mg + (sg - mg) * t);
+        const b = toFlash(mb + (sb - mb) * t);
         colorAttr.setXYZ(i, r, g, b);
       }
       positionAttr.needsUpdate = true;
       colorAttr.needsUpdate = true;
 
       material.size = 0.12 + volume * 0.06;
+
+      // Gather時に集めた接続線をジオメトリへ反映する(結合の強さが視覚的に分かるよう、
+      // 線の不透明度もgatherの強さに応じて変える)
+      const lineGeo = lineSegments.geometry;
+      if (lineCount > 0) {
+        const linePosAttr = lineGeo.getAttribute("position") as THREE.BufferAttribute;
+        (linePosAttr.array as Float32Array).set(linePositions.subarray(0, lineCount * 6));
+        linePosAttr.needsUpdate = true;
+        lineGeo.setDrawRange(0, lineCount * 2);
+        lineMaterial.color.setRGB(mr, mg, mb);
+        lineMaterial.opacity = Math.min(0.6, gather * 0.9);
+      } else {
+        lineGeo.setDrawRange(0, 0);
+      }
 
       ctx.renderer.render(renderScene, camera);
     },

@@ -17,9 +17,8 @@ const vertexShader = `
 const fragmentShader = `
   uniform float uOffset;
   uniform vec3 uColors[${BAND_COUNT}];
-  uniform float uTrigger0;
-  uniform float uTrigger1;
-  uniform float uTrigger2;
+  uniform float uPadX;
+  uniform float uPadY;
   varying vec2 vUv;
 
   void main() {
@@ -31,13 +30,18 @@ const fragmentShader = `
       if (i == index) color = uColors[i];
     }
 
-    // Trigger 1(Monochrome): 発生中は彩度を落としグレースケールに近づける
+    // FXパッドX: 彩度を落としグレースケールへ寄せる度合い(Monochromeの連続版)。中心からどちらへ
+    // 動かしても同じ効果になるよう絶対値を使う(0=通常、|1|=完全グレースケール)
+    float mono = abs(uPadX);
     float luminance = dot(color, vec3(0.299, 0.587, 0.114));
-    color = mix(color, vec3(luminance), uTrigger0);
-    // Trigger 2(Pale): 発生中は白へ寄せて淡くする
-    color = mix(color, vec3(1.0), uTrigger1 * 0.85);
-    // Trigger 3(Darken): 発生中は黒へ寄せて濃く沈める
-    color = mix(color, vec3(0.0), uTrigger2 * 0.85);
+    color = mix(color, vec3(luminance), mono);
+
+    // FXパッドY: 正で白へ(Paleの連続版)、負で黒へ(Darkenの連続版)寄せる。符号がそのまま
+    // 「淡くする/濃く沈める」の向きを表す
+    float paleAmount = max(uPadY, 0.0) * 0.85;
+    float darkenAmount = max(-uPadY, 0.0) * 0.85;
+    color = mix(color, vec3(1.0), paleAmount);
+    color = mix(color, vec3(0.0), darkenAmount);
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -45,7 +49,7 @@ const fragmentShader = `
 
 /**
  * 画面いっぱいに引いた虹色の平行線が上から下へ流れ続けるシーン(WebGL)。
- * カラーパレット非対応(虹の配色そのものが特徴のため)。
+ * カラーパレット非対応(虹の配色そのものが特徴のため)。FXパッド対応。
  */
 const createRainbowScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -57,7 +61,7 @@ const createRainbowScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Rainbow",
     supportsPalette: false,
-    triggerEffectNames: ["Monochrome", "Pale", "Darken"],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -75,9 +79,8 @@ const createRainbowScene: SceneFactory = () => {
         uniforms: {
           uOffset: { value: 0 },
           uColors: { value: colors },
-          uTrigger0: { value: 0 },
-          uTrigger1: { value: 0 },
-          uTrigger2: { value: 0 },
+          uPadX: { value: 0 },
+          uPadY: { value: 0 },
         },
       });
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
@@ -93,9 +96,8 @@ const createRainbowScene: SceneFactory = () => {
       offset = (offset + speed * dt) % CYCLE_HEIGHT;
 
       material.uniforms.uOffset.value = offset;
-      material.uniforms.uTrigger0.value = ctx.triggers[0];
-      material.uniforms.uTrigger1.value = ctx.triggers[1];
-      material.uniforms.uTrigger2.value = ctx.triggers[2];
+      material.uniforms.uPadX.value = ctx.padX;
+      material.uniforms.uPadY.value = ctx.padY;
       ctx.renderer.render(renderScene, camera);
     },
   };

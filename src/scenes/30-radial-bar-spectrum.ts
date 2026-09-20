@@ -7,7 +7,7 @@ const INNER_RADIUS = 1;
 
 /**
  * 円形に並んだバーが音声で放射方向に伸縮する、レコード盤スペクトラムアナライザー風のシーン(WebGL)。
- * カラーパレット対応。手動トリガー3種対応。Bar Spectrum(1次元配列)の円形配置版。
+ * カラーパレット対応。Bar Spectrum(1次元配列)の円形配置版。FXパッド対応。
  */
 const createRadialBarSpectrumScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -19,7 +19,7 @@ const createRadialBarSpectrumScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Radial Bar Spectrum",
     supportsPalette: true,
-    triggerEffectNames: ["Height Kick", "Color Flip", "White Flash"],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -45,15 +45,15 @@ const createRadialBarSpectrumScene: SceneFactory = () => {
       const mid = Math.min(2.5, ctx.audio.mid);
       const treble = Math.min(2.5, ctx.audio.treble);
 
-      // Trigger 1(Height Kick): 発生中は全バーの長さに一時的なオフセットを加える
-      const heightKick = ctx.triggers[0] * 2;
-      // Trigger 2(Color Flip): 発生中はmain/subの補間方向を反転させる
-      const flip = ctx.triggers[1] > 0.5;
-      // Trigger 3(White Flash): 発生中は配色を白へ寄せる
-      const whiteMix = ctx.triggers[2];
-
       const [mr, mg, mb] = hexToRgb(ctx.palette.main);
       const [sr, sg, sb] = hexToRgb(ctx.palette.sub);
+
+      // FXパッドX: 中心(0)から左右どちらへ動かしても補間方向を反転させる(絶対値を使い、
+      // 左右対称にする。0=通常、|1|=完全反転、Color Flipの連続版)
+      const flip = Math.abs(ctx.padX);
+      // FXパッドY: 全バーの長さに一時的なオフセットを加える(正で伸びる、負で縮む方向、
+      // Height Kickの連続版)
+      const heightKick = ctx.padY * 2;
 
       for (let i = 0; i < BAR_COUNT; i++) {
         const angle = (i / BAR_COUNT) * Math.PI * 2;
@@ -64,21 +64,21 @@ const createRadialBarSpectrumScene: SceneFactory = () => {
         const midWeight = 1 - bassWeight - trebleWeight;
         const n = Math.sin(angle * 3 + ctx.time * 2) * 0.5 + 0.5;
         const level = Math.min(2.5, (bass * bassWeight + mid * midWeight + treble * trebleWeight) * n);
-        const length = 0.4 + level * 1.8 + heightKick;
+        const length = Math.max(0.05, 0.4 + level * 1.8 + heightKick);
 
         const cx = Math.cos(angle) * (INNER_RADIUS + length / 2);
         const cy = Math.sin(angle) * (INNER_RADIUS + length / 2);
         dummy.position.set(cx, cy, 0);
         dummy.rotation.z = angle - Math.PI / 2;
-        dummy.scale.set(1, Math.max(0.05, length), 1);
+        dummy.scale.set(1, length, 1);
         dummy.updateMatrix();
         instancedMesh.setMatrixAt(i, dummy.matrix);
 
-        const colorT = flip ? 1 - pos : pos;
+        const colorT = pos + (1 - 2 * pos) * flip;
         const r = mr + (sr - mr) * colorT;
         const g = mg + (sg - mg) * colorT;
         const b = mb + (sb - mb) * colorT;
-        color.setRGB(r + (1 - r) * whiteMix, g + (1 - g) * whiteMix, b + (1 - b) * whiteMix);
+        color.setRGB(r, g, b);
         instancedMesh.setColorAt(i, color);
       }
       instancedMesh.instanceMatrix.needsUpdate = true;

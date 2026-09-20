@@ -44,14 +44,15 @@ const fragmentShader = `
     float light = max(dot(normal, normalize(vec3(0.3, 0.5, 1.0))), 0.0);
 
     vec3 color = mix(uMainColor, uSubColor, vSegmentT);
-    color = mix(color, vec3(1.0), uFlash);
+    // FXパッドX: 正で白へ、負で黒へ寄せる(0で通常の配色、Flashの連続版)
+    color = uFlash >= 0.0 ? mix(color, vec3(1.0), uFlash) : color * (1.0 + uFlash);
     gl_FragColor = vec4(color * (0.25 + light * 0.9) * (0.7 + volume * 0.3), 1.0);
   }
 `;
 
 /**
  * 平面が折り紙のアコーディオン折りのように開閉するシーン(WebGL)。カラーパレット対応。
- * 手動トリガー3種対応。既存シーンにない幾何学的な「折り目」の動き。
+ * 既存シーンにない幾何学的な「折り目」の動き。FXパッド対応。
  */
 const createOrigamiFoldingPlanesScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -62,7 +63,7 @@ const createOrigamiFoldingPlanesScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Origami Folding Planes",
     supportsPalette: true,
-    triggerEffectNames: ["Fold", "Flatten", "Flash"],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -89,21 +90,25 @@ const createOrigamiFoldingPlanesScene: SceneFactory = () => {
       camera.aspect = ctx.width / ctx.height;
       camera.updateProjectionMatrix();
 
+      // 動きが少なく単調だったため、常時Y軸周りに回転させ続ける
+      mesh.rotation.y = ctx.time * 0.5;
+
       // Intensity(0〜9倍)を上げても変化が続くよう上限は高めにクランプする
       const bass = Math.min(2, ctx.audio.bass);
 
       // 通常時はbassでゆっくり折れ角度が変化する。
-      // Trigger 1(Fold): 発生中は折れ角度を最大(π/2、最も深い折り)にする
-      // Trigger 2(Flatten): 発生中は折れ角度を0(平ら)にする
+      // FXパッドY: 正で折れ角度を最大(π/2、最も深い折り)へ、負で0(平ら)へ連続的に寄せる
+      // (以前のFold/Flattenという別々のワンショットを、両端の状態を作る1本の軸として統合した)
       const baseFold = 0.4 + bass * 0.5;
-      const fold = ctx.triggers[0] * (Math.PI / 2) + baseFold * (1 - ctx.triggers[0]) * (1 - ctx.triggers[1]);
+      const padUp = Math.max(0, ctx.padY);
+      const padDown = Math.max(0, -ctx.padY);
+      const fold = padUp * (Math.PI / 2) + baseFold * (1 - padUp) * (1 - padDown);
 
       material.uniforms.uFoldAngle.value = fold;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
       material.uniforms.uVolume.value = ctx.audio.volume;
-      // Trigger 3(Flash): 発生中は白へ寄せる
-      material.uniforms.uFlash.value = ctx.triggers[2];
+      material.uniforms.uFlash.value = ctx.padX;
 
       ctx.renderer.render(renderScene, camera);
     },

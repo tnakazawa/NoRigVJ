@@ -40,8 +40,9 @@ const fragmentShader = `
     float glitchStep = floor(uTime * 8.0);
     vec2 block = floor(p * 14.0);
     float blockRand = hash(block + glitchStep);
-    // Trigger 1(Corrupt): 発生中はグリッチのしきい値を下げ、常時グリッチ状態にする
-    float threshold = 0.9 - uCorrupt * 0.85;
+    // FXパッドY: グリッチのしきい値を連続的に上下させる(以前のCorruptの連続版。正でしきい値を
+    // 下げて常時グリッチに近づけ、負でしきい値を上げてグリッチを鎮める対称的な軸)
+    float threshold = clamp(0.9 - uCorrupt * 0.85, 0.0, 1.0);
     float isGlitching = step(threshold, blockRand + volume * 0.1);
 
     // グリッチ発生ブロックは横方向にランダムにずらしたRGBずらし風の配色にする
@@ -52,8 +53,8 @@ const fragmentShader = `
     glitchColor = mix(glitchColor, 1.0 - glitchColor, step(0.5, hash(block + glitchStep + 9.0)));
 
     vec3 color = mix(baseColor, glitchColor, isGlitching);
-    // Trigger 2(Flash): 発生中は白へ寄せる
-    color = mix(color, vec3(1.0), uFlash);
+    // FXパッドX: 正で白へ、負で黒へ寄せる(0で通常の配色、Flashの連続版)
+    color = uFlash >= 0.0 ? mix(color, vec3(1.0), uFlash) : color * (1.0 + uFlash);
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -61,8 +62,8 @@ const fragmentShader = `
 
 /**
  * 画面がブロック単位でデジタル的に乱れるグリッチノイズのシーン(WebGL)。カラーパレット対応。
- * 手動トリガー2種対応。Matrix Rainと同じ「デジタル」な質感だが、破損・ズレというグリッチ特有の
- * 表現で差別化している。
+ * Matrix Rainと同じ「デジタル」な質感だが、破損・ズレというグリッチ特有の
+ * 表現で差別化している。FXパッド対応。
  */
 const createGlitchBlocksScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -72,7 +73,7 @@ const createGlitchBlocksScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Glitch Blocks",
     supportsPalette: true,
-    triggerEffectNames: ["Corrupt", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -98,8 +99,8 @@ const createGlitchBlocksScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
-      material.uniforms.uCorrupt.value = ctx.triggers[0];
-      material.uniforms.uFlash.value = ctx.triggers[1];
+      material.uniforms.uCorrupt.value = ctx.padY;
+      material.uniforms.uFlash.value = ctx.padX;
       ctx.renderer.render(renderScene, camera);
     },
   };

@@ -21,7 +21,6 @@ const fragmentShader = `
   uniform vec3 uMainColor;
   uniform vec3 uSubColor;
   uniform float uBloom;
-  uniform float uSpinBurst;
   uniform float uFlash;
   varying vec2 vUv;
 
@@ -40,11 +39,11 @@ const fragmentShader = `
     vec2 aspectVec = vec2(uAspect, 1.0);
     vec2 p = (vUv - 0.5) * aspectVec;
 
-    // Trigger 1(Bloom): 発生中は花が開くように半径を大きく広げる
+    // FXパッドY: 半径を連続的に広げる/縮める(以前のBloomの連続版。正で花が開くように広がり、
+    // 負で閉じるように縮む、量的エフェクトとして両方向に自然に振れる)
     float radius = (0.22 + bass * 0.06) * (1.0 + uBloom * 1.2);
     float width = 0.008 + volume * 0.004;
-    // Trigger 2(Spin Burst): 発生中は回転速度を大幅にブーストする
-    float rotation = uTime * (0.15 + treble * 0.3 + uSpinBurst * 3.0);
+    float rotation = uTime * (0.15 + treble * 0.3);
 
     // 中心円+周囲6個の円を重ねる、古典的な「生命の花」模様の基本形
     float pattern = ring(p, vec2(0.0), radius, width);
@@ -57,17 +56,17 @@ const fragmentShader = `
 
     float t = clamp(length(p) / (radius * 2.0), 0.0, 1.0);
     vec3 color = mix(uMainColor, uSubColor, t) * pattern * (0.6 + volume * 0.8);
-    // Trigger 3(Flash): 発生中は白へ寄せる
-    color = mix(color, vec3(1.0) * pattern, uFlash);
+    // FXパッドX: 正で白へ、負で黒へ寄せる(0で通常の配色、Flashの連続版)
+    color = uFlash >= 0.0 ? mix(color, vec3(1.0) * pattern, uFlash) : color * (1.0 + uFlash);
 
     gl_FragColor = vec4(color, 1.0);
   }
 `;
 
 /**
- * 重なる円が「生命の花」状の幾何学模様を作るシーン(WebGL)。カラーパレット対応。手動トリガー3種対応。
+ * 重なる円が「生命の花」状の幾何学模様を作るシーン(WebGL)。カラーパレット対応。
  * Kaleidoscopeと同じフルスクリーンquad方式だが、角度分割の反復模様ではなく円の重なりで模様を作る点で
- * 差別化している。
+ * 差別化している。FXパッド対応。
  */
 const createSacredGeometryMandalaScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -77,7 +76,7 @@ const createSacredGeometryMandalaScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Sacred Geometry Mandala",
     supportsPalette: true,
-    triggerEffectNames: ["Bloom", "Spin Burst", "Flash"],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -93,7 +92,6 @@ const createSacredGeometryMandalaScene: SceneFactory = () => {
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
           uBloom: { value: 0 },
-          uSpinBurst: { value: 0 },
           uFlash: { value: 0 },
         },
       });
@@ -108,9 +106,8 @@ const createSacredGeometryMandalaScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
-      material.uniforms.uBloom.value = ctx.triggers[0];
-      material.uniforms.uSpinBurst.value = ctx.triggers[1];
-      material.uniforms.uFlash.value = ctx.triggers[2];
+      material.uniforms.uBloom.value = ctx.padY;
+      material.uniforms.uFlash.value = ctx.padX;
       ctx.renderer.render(renderScene, camera);
     },
   };

@@ -10,9 +10,9 @@ const GRAVITY = 6;
 const RESTITUTION = 0.72;
 
 /**
- * 簡易物理でバウンドするボール群のシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
+ * 簡易物理でバウンドするボール群のシーン(WebGL)。カラーパレット対応。
  * 前フレームの速度・位置を保持し続ける点はFlocking Boidsと同じだが、群れの相互作用ではなく
- * 重力・反発という物理的な動きが主役という点で差別化している。
+ * 重力・反発という物理的な動きが主役という点で差別化している。FXパッド対応。
  */
 const createBouncingBallsScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -31,7 +31,7 @@ const createBouncingBallsScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Bouncing Balls",
     supportsPalette: true,
-    triggerEffectNames: ["Bounce Burst", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -72,30 +72,31 @@ const createBouncingBallsScene: SceneFactory = () => {
       const dt = lastTime === null ? 0 : Math.min(0.05, ctx.time - lastTime);
       lastTime = ctx.time;
 
-      // Trigger 1(Bounce Burst): 発生中は立ち上がりの瞬間に全ボールへ上向きの速度を与える
-      const burstEdge = ctx.triggers[0] > 0.9;
-      // Trigger 2(Flash): 発生中は白へ寄せる
-      const flash = ctx.triggers[1];
-
-      // 低域が強いタイミングでたまにジャンプさせ、音楽的な弾みを出す
-      const jumpChance = bass * 0.02;
+      // FXパッドY: 「立ち上がり検出で1回だけ発火」という以前のBounce Burstは連続値と相性が
+      // 悪いため、「押している間ジャンプの発生確率と強さを連続的に上げる」演出に作り直した
+      // (正でよく弾む・高く跳ねる、負で重力を強めて床に張り付くように沈む対称的な軸)
+      const lift = Math.max(0, ctx.padY);
+      const heavy = Math.max(0, -ctx.padY);
+      const gravity = GRAVITY * (1 + heavy * 2);
+      // 低域が強いタイミングでたまにジャンプさせ、音楽的な弾みを出す(FXパッドYで頻度・強さを底上げ)
+      const jumpChance = bass * 0.02 + lift * 0.3;
+      // FXパッドX: 正で白へ、負で黒へ寄せる(0で通常の配色、Flashの連続版)
+      const flash = ctx.padX;
+      const toFlash = (c: number) => (flash >= 0 ? c + (1 - c) * flash : c * (1 + flash));
 
       const [mr, mg, mb] = hexToRgb(ctx.palette.main);
       const [sr, sg, sb] = hexToRgb(ctx.palette.sub);
 
       for (let i = 0; i < BALL_COUNT; i++) {
-        yVelocities[i] -= GRAVITY * dt;
+        yVelocities[i] -= gravity * dt;
         yPositions[i] += yVelocities[i] * dt;
 
         if (yPositions[i] < FLOOR_Y + 0.3) {
           yPositions[i] = FLOOR_Y + 0.3;
           yVelocities[i] = Math.abs(yVelocities[i]) * RESTITUTION;
           if (Math.random() < jumpChance) {
-            yVelocities[i] += 2 + Math.random() * 2;
+            yVelocities[i] += 2 + Math.random() * 2 + lift * 3;
           }
-        }
-        if (burstEdge && yVelocities[i] < 4) {
-          yVelocities[i] = 5 + Math.random() * 1.5;
         }
 
         dummy.position.set(xPositions[i], yPositions[i], zPositions[i]);
@@ -103,10 +104,10 @@ const createBouncingBallsScene: SceneFactory = () => {
         instancedMesh.setMatrixAt(i, dummy.matrix);
 
         const t = i / (BALL_COUNT - 1);
-        const r = mr + (sr - mr) * t;
-        const g = mg + (sg - mg) * t;
-        const b = mb + (sb - mb) * t;
-        color.setRGB(r + (1 - r) * flash, g + (1 - g) * flash, b + (1 - b) * flash);
+        const r = toFlash(mr + (sr - mr) * t);
+        const g = toFlash(mg + (sg - mg) * t);
+        const b = toFlash(mb + (sb - mb) * t);
+        color.setRGB(r, g, b);
         instancedMesh.setColorAt(i, color);
       }
       instancedMesh.instanceMatrix.needsUpdate = true;

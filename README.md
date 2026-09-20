@@ -82,47 +82,49 @@ Press the "Random" button in the panel to instantly randomize every display: eac
 
 ## Full-auto mode
 
-Press the toggle button in the panel to have the app automatically repeat a switch on a timer, without touching anything yourself. Turning it on switches immediately (it doesn't wait for the first interval to elapse before doing anything). The button label shows what clicking it will do: "Auto: ON" when it's off, and "Auto: OFF (next in mm:ss)" — counting down to the next automatic switch — while it's running. Manually pressing a display's "Crossfade" button or the "Random" button turns full-auto off; a manual scene reservation, palette change, preset recall, Trigger, Auto mode change, or Intensity/Crossfade duration adjustment does not. The toggle stays enabled even with no displays connected (except, see below, while Sequence mode has an empty sequence).
+Press the toggle button in the panel to have the app automatically repeat a switch on a timer, without touching anything yourself. Turning it on switches immediately (it doesn't wait for the first interval to elapse before doing anything). The button label shows what clicking it will do: "Auto: ON" when it's off, and "Auto: OFF (next in mm:ss)" — counting down to the next automatic switch — while it's running. Manually pressing a display's "Crossfade" button or the "Random" button turns full-auto off; a manual scene reservation, palette change, preset recall, FX Pad use, Auto mode change, or Intensity/Crossfade duration adjustment does not. The toggle stays enabled even with no displays connected (except, see below, while Sequence mode has an empty sequence).
 
 The "Auto mode" radio buttons choose what full-auto actually does:
 
 - **Random** (default) — repeats the semi-auto randomization above: each display independently picks a random scene and palette. Set the "Auto interval" slider (5-60 seconds) to control how often. The Crossfade duration is never allowed to exceed the Auto interval; it's automatically shortened to match whenever you change the Auto interval, turn full-auto on, or adjust the Crossfade duration while full-auto is on.
 - **Sequence** — steps through a fixed, user-defined order instead of picking randomly. The "Auto interval" slider is hidden in this mode, since each step sets its own timing instead. Click "Edit Sequence..." to open the editor: click "+" next to any scene to append it to the sequence (the same scene can be added more than once), drag the list on the right to reorder it, and pick a color palette for each step individually. Every step also has its own "Duration" (how long it stays on screen, 5-60 seconds) and "Crossfade" time (how long the transition into it takes, capped at that step's Duration). The sequence you're currently editing is saved to the browser's `localStorage` and survives a reload. You can also save the whole thing under a name with "Save Sequence", recall a saved one from the dropdown next to it, or remove one with "Delete" — handy for switching between several prepared sequences. Unlike Random, every display advances together and shows the same scene and palette at the same moment — the point is showing everyone the same intended progression, not variety. The Auto toggle is disabled while the sequence is empty.
 
-## Manual trigger effects
+## FX Pad
 
-One-shot effects the VJ fires with a button or key at just the right moment (an earlier attempt at automatic BPM detection was abandoned for insufficient accuracy — see below). There are three, "Trigger 1", "Trigger 2", and "Trigger 3", and pressing one makes every display (including the control UI's previews) react simultaneously. Which effects a scene has varies by scene, and the button is disabled while a scene with no matching effect is shown (30 of the 33 scenes support triggers; Blank, Plasma Lava, and Grid Terrain don't).
+A touchpad-like rectangle below the display list, centered under it. Click or drag inside it and every display (including the control UI's previews) reacts in real time to the pointer's position, normalized so the center is (0, 0), the top-left is (-1, -1), and the bottom-right is (1, 1). The X axis and Y axis each drive a different effect (varies by scene): the farther from center, the stronger the effect, and moving past center in the opposite direction flips it the other way (e.g. top-left is the negative of bottom-right). Releasing resets the value to the center (0, 0) instantly — there's no decay to wait out. It's a single shared control (not per-display), and it's disabled while no visible display is showing a scene that supports it. Every scene supports it except Blank, which renders nothing (this replaced the old one-shot Trigger 1/2/3 buttons):
 
-- **Pulse Rings**: Trigger 1 = Ring Burst (spawns a new ring that bursts outward) / Trigger 2 = Color Flip (briefly reverses the coloring) / Trigger 3 = Radius Kick (briefly enlarges all rings)
-- **Bar Spectrum**: Trigger 1 = Height Kick (briefly stretches all bars) / Trigger 2 = Color Flip (briefly reverses the coloring) / Trigger 3 = White Flash (briefly flashes white)
-- **Noise Field**: Trigger 1 = Radial Push (pushes particles outward radially) / Trigger 2 = Freeze (briefly freezes motion) / Trigger 3 = Color Flash (briefly flashes white)
-- **Feedback Loop**: Trigger 1 = Zoom Punch (briefly intensifies the swirl distortion) / Trigger 2 = Flash (briefly intensifies the center glow) / Trigger 3 = Invert (briefly inverts the coloring)
-- **Wireframe Polyhedron**: Trigger 1 = Spin Kick (briefly boosts rotation speed) / Trigger 2 = Scale Pulse (briefly enlarges all polyhedra) / Trigger 3 = Flash (briefly flashes white)
-- **Kaleidoscope**: Trigger 1 = Segment Kick (briefly increases the segment count) / Trigger 2 = Spin Burst (briefly boosts rotation speed) / Trigger 3 = Flash (briefly brightens)
-- **Bloom Particles**: Trigger 1 = Radial Burst (pushes particles outward radially) / Trigger 2 = Bloom Flash (briefly intensifies the glow) / Trigger 3 = Freeze (briefly freezes motion)
-- **Rainbow**: Trigger 1 = Monochrome (briefly desaturates to grayscale) / Trigger 2 = Pale (briefly fades toward white) / Trigger 3 = Darken (briefly deepens toward black)
-- **Starfield Warp**: Trigger 1 = Warp Speed (briefly boosts speed sharply) / Trigger 2 = Flash (briefly makes stars bigger and white)
-- **Metaball Blob**: Trigger 1 = Spike (briefly deforms into spikes) / Trigger 2 = Smooth (briefly reverts to a perfect sphere)
-- **Halftone Dots**: Trigger 1 = Invert (briefly swaps dot/background coloring) / Trigger 2 = Zoom (briefly changes dot density) / Trigger 3 = Flash (briefly flashes white)
-- **Lissajous Lines**: Trigger 1 = Ratio Kick (briefly changes the frequency ratio, distorting the pattern) / Trigger 2 = Flash (briefly glows white)
-- **Voronoi Cells**: Trigger 1 = Shuffle (briefly changes the grid density, reshuffling the pattern) / Trigger 2 = Flash (briefly flashes white)
-- **Instanced Cube Grid**: Trigger 1 = Height Kick (briefly lifts all cubes) / Trigger 2 = Wave Pulse (briefly intensifies the ripple from the center) / Trigger 3 = White Flash (briefly flashes white)
-- **Matrix Rain**: Trigger 1 = Speed Burst (briefly boosts the scroll speed) / Trigger 2 = Flash (briefly flashes white)
-- **DNA Helix**: Trigger 1 = Spin Kick (briefly boosts rotation speed) / Trigger 2 = Radius Pulse (briefly widens the helix) / Trigger 3 = Flash (briefly flashes white)
-- **Fireworks**: Trigger 1 = Launch Burst (briefly boosts the explosion force) / Trigger 2 = Flash (briefly flashes white)
-- **Fresnel Glass Sphere**: Trigger 1 = Glow Burst (briefly intensifies the rim glow) / Trigger 2 = Core Flash (briefly makes the core glow white too)
-- **Radial Rays**: Trigger 1 = Burst (briefly widens the glow radius) / Trigger 2 = Spin (briefly boosts rotation speed)
-- **Aurora**: Trigger 1 = Brighten (briefly intensifies the glow) / Trigger 2 = Ripple (briefly makes the waves shake violently)
-- **Spiral Galaxy**: Trigger 1 = Spin Burst (briefly boosts rotation speed) / Trigger 2 = Flash (briefly flashes white)
-- **Flocking Boids**: Trigger 1 = Scatter (briefly strengthens separation, scattering the flock) / Trigger 2 = Flash (briefly flashes white)
-- **Bouncing Balls**: Trigger 1 = Bounce Burst (gives every ball an upward kick) / Trigger 2 = Flash (briefly flashes white)
-- **Chladni Patterns**: Trigger 1 = Mode Shift (briefly changes the vibration mode, reshuffling the pattern) / Trigger 2 = Flash (briefly flashes white)
-- **Sacred Geometry Mandala**: Trigger 1 = Bloom (briefly expands like a flower opening) / Trigger 2 = Spin Burst (briefly boosts rotation speed) / Trigger 3 = Flash (briefly flashes white)
-- **Lightning Arcs**: Trigger 1 = Strike (forces every bolt to fire at once) / Trigger 2 = Flash (briefly flashes white)
-- **Glitch Blocks**: Trigger 1 = Corrupt (briefly maximizes the glitching) / Trigger 2 = Flash (briefly flashes white)
-- **Radial Bar Spectrum**: Trigger 1 = Height Kick (briefly stretches all bars) / Trigger 2 = Color Flip (briefly reverses the coloring) / Trigger 3 = White Flash (briefly flashes white)
-- **Origami Folding Planes**: Trigger 1 = Fold (briefly folds deeply) / Trigger 2 = Flatten (briefly opens flat) / Trigger 3 = Flash (briefly flashes white)
-- **Ribbon Wave**: Trigger 1 = Wave Kick (briefly intensifies the wave amplitude) / Trigger 2 = Flash (briefly flashes white)
+- **Pulse Rings**: X = blends the ring coloring toward its reverse (symmetric — either direction from center does the same thing) / Y = enlarges all rings toward positive, shrinks them toward negative
+- **Bar Spectrum**: X = blends the bar coloring toward its reverse (symmetric) / Y = stretches all bars taller toward positive, shorter toward negative
+- **Noise Field**: X = fades particle color toward white (positive) or black (negative) / Y = pushes particles outward radially (positive) or pulls them inward (negative)
+- **Feedback Loop**: X = blends the previous frame's coloring toward its reverse (symmetric) / Y = amplifies the swirl distortion toward positive, calms it toward negative
+- **Plasma Lava**: X = finer plasma pattern toward positive, coarser toward negative / Y = brightens toward positive, dims toward negative
+- **Wireframe Polyhedron**: X = speeds up rotation toward positive, reverses it toward negative / Y = fades toward white (positive) or black (negative)
+- **Kaleidoscope**: X = adds more segments toward positive, fewer toward negative / Y = brightens toward positive, dims toward negative
+- **Grid Terrain**: X = rougher terrain toward positive, flatter toward negative / Y = shifts the overall coloring toward the sub color (positive) or main color (negative)
+- **Bloom Particles**: X = pushes particles outward radially (positive) or pulls them inward (negative) / Y = slows the wobble's passage of time toward negative, approaching a freeze
+- **Rainbow**: X = desaturates toward grayscale (symmetric) / Y = fades toward white (positive) or black (negative)
+- **Starfield Warp**: X = boosts forward speed toward positive, slows it toward negative / Y = fades toward white and bigger (positive) or black and smaller (negative)
+- **Metaball Blob**: Y only = spikes the surface toward positive, smooths it toward a perfect sphere toward negative (no natural X-axis effect was found)
+- **Halftone Dots**: X = inverts dot/background coloring (symmetric) / Y = finer dot grid toward positive, coarser toward negative
+- **Lissajous Lines**: X = distorts the frequency ratio in either direction / Y = fades toward white (positive) or black (negative)
+- **Voronoi Cells**: X = denser cells toward positive, coarser cells toward negative / Y = fades toward white (positive) or black (negative)
+- **Instanced Cube Grid**: X = fades cube coloring toward white (positive) or black (negative) / Y = raises all cube heights toward positive, lowers them toward negative
+- **Matrix Rain**: X = speeds up the falling columns toward positive, slows them toward negative / Y = fades toward white (positive) or black (negative)
+- **DNA Helix**: X = speeds up rotation toward positive, reverses it toward negative / Y = enlarges the helix radius toward positive, shrinks it toward negative
+- **Fireworks**: X = boosts explosion velocity toward positive, softens it toward negative / Y = fades toward white (positive) or black (negative)
+- **Fresnel Glass Sphere**: X = intensifies the rim glow toward positive, dims it toward negative / Y = fades the core toward white (positive) or black (negative)
+- **Radial Rays**: X = speeds up rotation toward positive, reverses it toward negative / Y = widens the glow's reach toward positive, narrows it toward negative
+- **Aurora**: X = amplifies the wave ripple toward positive, flattens it toward negative / Y = brightens toward positive, dims toward negative
+- **Spiral Galaxy**: X = speeds up rotation toward positive, reverses it toward negative / Y = fades toward white (positive) or black (negative)
+- **Flocking Boids**: X = fades particle color toward white (positive) or black (negative) / Y = scatters the flock apart (positive) or pulls it into a tighter cluster (negative)
+- **Bouncing Balls**: X = fades ball color toward white (positive) or black (negative) / Y = makes balls jump more often and higher (positive) or weighs them down toward the floor (negative)
+- **Chladni Patterns**: X = fades toward white (positive) or black (negative) / Y = shifts the vibration mode, rearranging the sand pattern in either direction
+- **Sacred Geometry Mandala**: X = fades toward white (positive) or black (negative) / Y = blooms the pattern larger (positive) or shrinks it (negative)
+- **Lightning Arcs**: X = fades toward white (positive) or black (negative) / Y = keeps bolts visible much longer, toward near-constant strikes (positive), or shortens how long they're visible (negative)
+- **Glitch Blocks**: X = fades toward white (positive) or black (negative) / Y = corrupts more of the screen into glitch blocks (positive) or calms the glitching down (negative)
+- **Radial Bar Spectrum**: X = blends the bar coloring toward its reverse (symmetric) / Y = stretches all bars longer toward positive, shorter toward negative
+- **Origami Folding Planes**: X = fades toward white (positive) or black (negative) / Y = folds the plane to its sharpest crease (positive) or flattens it out (negative)
+- **Ribbon Wave**: X = fades toward white (positive) or black (negative) / Y = amplifies the ribbon's undulation (positive) or flattens it (negative)
 
 ## Controls (control UI)
 
@@ -141,10 +143,8 @@ The UI is in English.
 | Per-display palette controls | Reserves the next colors to switch to, via preset or color pickers |
 | Per-display "Save Preset" / selector / "Delete" | Saves/deletes the current scene+palette under a name. Recalling one updates the reservation |
 | Per-display "Crossfade" button | Actually switches the display to the reserved content |
-| "Trigger" heading (above the Trigger 1/2/3 buttons) | Label only, matches the look of the other sections |
-| Space / "Trigger 1" button | Fires Trigger 1 (shared across all displays) |
-| Right Cmd (Mac) / Right Ctrl (Windows) / "Trigger 2" button | Fires Trigger 2 (shared across all displays) |
-| Left Cmd (Mac) / Left Ctrl (Windows) / "Trigger 3" button | Fires Trigger 3 (shared across all displays) |
+| FX Pad (below the display list) | Click/drag inside the rectangle to drive the FX Pad's X/Y values in real time (shared across all displays; center is (0, 0), edges are ±1); releasing resets both to 0 |
+| Drag handle above the FX Pad | Resizes the FX Pad area's height (up to make it bigger); the size is remembered across reloads |
 | F (on the display window) | Toggles fullscreen |
 | "?" button next to a control | Opens a modal with a short explanation of that control; close it with the "✕" button or by clicking outside |
 

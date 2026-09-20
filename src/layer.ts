@@ -50,7 +50,8 @@ export function createLayer(sceneIndex: number, palette: Palette): Layer {
       time: 0,
       audio: { volume: 0, bass: 0, mid: 0, treble: 0 },
       palette,
-      triggers: [0, 0, 0],
+      padX: 0,
+      padY: 0,
     });
   }
 
@@ -69,9 +70,10 @@ export function renderLayer(
   height: number,
   time: number,
   audio: AudioLevels,
-  triggers: [number, number, number],
+  padX: number,
+  padY: number,
 ) {
-  layer.scene.render({ renderer: layer.renderer, width, height, time, audio, palette: layer.palette, triggers });
+  layer.scene.render({ renderer: layer.renderer, width, height, time, audio, palette: layer.palette, padX, padY });
 }
 
 /** レイヤーが保持するWebGLリソースを解放し、DOMから取り除く。 */

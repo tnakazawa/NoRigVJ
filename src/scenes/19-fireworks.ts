@@ -11,8 +11,8 @@ const GRAVITY = 1.8;
 
 /**
  * 複数発の花火が周期的に爆発し、重力で放物線を描いて消えていくシーン(WebGL)。カラーパレット対応。
- * 手動トリガー2種対応。既存の放射状パーティクル演出(Noise FieldのRadial Push等)と違い、
- * 「爆発→重力落下→消滅」という寿命のあるライフサイクルを持つ点で差別化している。
+ * 既存の放射状パーティクル演出(Noise FieldのRadial Push等)と違い、
+ * 「爆発→重力落下→消滅」という寿命のあるライフサイクルを持つ点で差別化している。FXパッド対応。
  */
 const createFireworksScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -29,7 +29,7 @@ const createFireworksScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Fireworks",
     supportsPalette: true,
-    triggerEffectNames: ["Launch Burst", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
@@ -82,11 +82,12 @@ const createFireworksScene: SceneFactory = () => {
       const bass = Math.min(2.5, ctx.audio.bass);
       const volume = Math.min(2, ctx.audio.volume);
 
-      // Trigger 1(Launch Burst): 発生中は爆発の勢いを大幅にブーストする
-      const launchBoost = ctx.triggers[0] * 3;
-      const v0 = 2 + bass * 1.5 + launchBoost;
-      // Trigger 2(Flash): 発生中は白へ寄せる
-      const flash = ctx.triggers[1];
+      // FXパッドX: 爆発の初速にオフセットを加える(正でより勢いよく、負でよりゆっくり。Launch Burstの連続版)。
+      // 打ち上げ自体は周期的に発生し続けるため、パッドを押している間の連続的な勢い調整として自然に成立する
+      const v0 = Math.max(0.3, 2 + bass * 1.5 + ctx.padX * 3);
+      // FXパッドY: 白(正)/黒(負)へ寄せる対称式(Flashの連続版)
+      const flash = ctx.padY;
+      const toFlash = (c: number) => (flash >= 0 ? c + (1 - c) * flash : c * (1 + flash));
 
       const positionAttr = points.geometry.getAttribute("position") as THREE.BufferAttribute;
       const colorAttr = points.geometry.getAttribute("color") as THREE.BufferAttribute;
@@ -109,13 +110,10 @@ const createFireworksScene: SceneFactory = () => {
         const ageT = age / CYCLE_DURATION;
         const fade = 1 - ageT;
         const t = shellColorT[shell];
-        let r = (mr + (sr - mr) * t) * fade;
-        let g = (mg + (sg - mg) * t) * fade;
-        let b = (mb + (sb - mb) * t) * fade;
-        r += (1 - r) * flash;
-        g += (1 - g) * flash;
-        b += (1 - b) * flash;
-        colorAttr.setXYZ(i, r, g, b);
+        const r = (mr + (sr - mr) * t) * fade;
+        const g = (mg + (sg - mg) * t) * fade;
+        const b = (mb + (sb - mb) * t) * fade;
+        colorAttr.setXYZ(i, toFlash(r), toFlash(g), toFlash(b));
       }
       positionAttr.needsUpdate = true;
       colorAttr.needsUpdate = true;

@@ -33,8 +33,8 @@ const fragmentShader = `
     float bass = clamp(uBass, 0.0, 2.0);
 
     vec2 aspectVec = vec2(uAspect, 1.0);
-    // Trigger 1(Shuffle)発生中は格子の密度を一時的に変え、模様を瞬時に組み替える
-    float gridScale = 6.0 + uShuffle * 6.0;
+    // FXパッドX: 格子密度を連続的に変える(正で密に細かいセルへ、負で粗く大きいセルへ。Shuffleの連続版)
+    float gridScale = clamp(6.0 + uShuffle * 5.0, 2.0, 11.0);
     vec2 p = vUv * aspectVec * gridScale;
 
     vec2 cellId = floor(p);
@@ -71,8 +71,12 @@ const fragmentShader = `
     vec3 cellColor = mix(uMainColor, uSubColor, cellT);
     vec3 color = mix(vec3(0.0), cellColor, edgeLine);
 
-    // Trigger 2(Flash): 発生中は境界線ごと白く光らせる
-    color = mix(color, vec3(1.0), uFlash);
+    // FXパッドY: 白(正)/黒(負)へ寄せる対称式(Flashの連続版、Noise Fieldと同じ考え方)
+    if (uFlash >= 0.0) {
+      color = color + (1.0 - color) * uFlash;
+    } else {
+      color = color * (1.0 + uFlash);
+    }
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -80,8 +84,8 @@ const fragmentShader = `
 
 /**
  * 不規則なセル境界が浮かび上がるVoronoi(Worley noise)模様のシーン(WebGL)。カラーパレット対応。
- * 手動トリガー2種対応。Kaleidoscope/Halftone Dotsと同じフルスクリーンquad方式だが、
- * 規則的な反復ではなく不規則な多角形セルという見た目で差別化している。
+ * Kaleidoscope/Halftone Dotsと同じフルスクリーンquad方式だが、
+ * 規則的な反復ではなく不規則な多角形セルという見た目で差別化している。FXパッド対応。
  */
 const createVoronoiCellsScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -91,7 +95,7 @@ const createVoronoiCellsScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Voronoi Cells",
     supportsPalette: true,
-    triggerEffectNames: ["Shuffle", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -119,8 +123,8 @@ const createVoronoiCellsScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
-      material.uniforms.uShuffle.value = ctx.triggers[0];
-      material.uniforms.uFlash.value = ctx.triggers[1];
+      material.uniforms.uShuffle.value = ctx.padX;
+      material.uniforms.uFlash.value = ctx.padY;
       ctx.renderer.render(renderScene, camera);
     },
   };

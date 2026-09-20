@@ -15,7 +15,7 @@ import {
   saveSequencePreset,
   type SequenceStep,
 } from "./sequence";
-import { CHANNEL_NAME, type CrossfadeInstruction, type TriggerInstruction, type VJState } from "./shared";
+import { CHANNEL_NAME, type CrossfadeInstruction, type VJState } from "./shared";
 
 const displaysListEl = document.getElementById("displays-list")!;
 const displaysEmptyEl = document.getElementById("displays-empty")!;
@@ -41,24 +41,25 @@ const sequencePresetSaveBtn = document.getElementById("sequence-preset-save") as
 const sequencePresetSelectEl = document.getElementById("sequence-preset-select") as HTMLSelectElement;
 const sequencePresetDeleteBtn = document.getElementById("sequence-preset-delete") as HTMLButtonElement;
 const statusEl = document.getElementById("status")!;
-const triggerButtons = [
-  document.getElementById("trigger-1") as HTMLButtonElement,
-  document.getElementById("trigger-2") as HTMLButtonElement,
-  document.getElementById("trigger-3") as HTMLButtonElement,
-];
-
-/** Trigger 1/2/3のbeatPulse相当の減衰の速さ(この時定数(秒)でe^-1倍になる) */
-const TRIGGER_PULSE_DECAY_TAU = 0.2;
+const fxPadEl = document.getElementById("fx-pad") as HTMLElement;
+const fxPadDotEl = document.getElementById("fx-pad-dot") as HTMLElement;
+const fxPadSectionEl = document.getElementById("fx-pad-section") as HTMLElement;
+const fxPadResizeHandleEl = document.getElementById("fx-pad-resize-handle") as HTMLElement;
 
 let startTime = performance.now();
 let manualIntensity = 1; // ← / → キー、またはスライダーで調整
 let crossfadeDurationMs = 1000;
 let latestAudio: AudioLevels = { volume: 0, bass: 0, mid: 0, treble: 0 };
 let latestTime = 0;
-let latestTriggers: [number, number, number] = [0, 0, 0];
+
+// FXパッド([specs/015-fx-pad.md](../specs/015-fx-pad.md)参照)。押している間の座標(中心(0,0)、
+// 左上(-1,-1)、右下(1,1)に正規化)を全投影窓へそのまま送る。減衰の概念はなく、離すと即座に0へ戻る
+// (中心=未操作状態と一致する)。
+let padX = 0;
+let padY = 0;
 
 // フルオートモード([specs/012-full-auto-mode.md](../specs/012-full-auto-mode.md)参照)。
-// VJが手動でCrossfade/Randomボタンを押すと解除される(シーン予約変更・Trigger発火・
+// VJが手動でCrossfade/Randomボタンを押すと解除される(シーン予約変更・FXパッド操作・
 // Intensity/Crossfade durationスライダー操作では解除しない)。
 let fullAutoIntervalMs = 5 * 60 * 1000;
 let fullAutoEnabled = false;
@@ -75,40 +76,34 @@ let sequenceSteps: SequenceStep[] = loadSequence().steps;
  * -1は「まだ一度も進んでいない」= 次回は0番目から始まる、という意味。 */
 let sequenceIndex = -1;
 
-// 各トリガーが最後に発火した時刻(performance.now()、未発火は0)。VJStateへは
-// 「直近に発火した1件」だけをidつきで送り、投影窓側はidの変化で新規発火を判定する
-// (クロスフェードのCrossfadeInstructionと同じ方式)。
-const triggerFiredAt: [number, number, number] = [0, 0, 0];
-let lastTrigger: TriggerInstruction | null = null;
-
-/** Trigger 1/2/3ボタンを押した(またはキーを押した)ときに呼ぶ。 */
-function fireTrigger(index: 0 | 1 | 2) {
-  triggerFiredAt[index] = performance.now();
-  lastTrigger = { id: crypto.randomUUID(), index };
+/** パッド内でのpointerイベント座標を、パッド範囲でクランプした-1〜1のx,yに変換する(中心が0,0)。 */
+function pointerToPad(event: PointerEvent): { x: number; y: number } {
+  const rect = fxPadEl.getBoundingClientRect();
+  const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  const y = ((event.clientY - rect.top) / rect.height) * 2 - 1;
+  return { x: Math.min(1, Math.max(-1, x)), y: Math.min(1, Math.max(-1, y)) };
 }
 
-/** @returns 現在時刻におけるTrigger 1/2/3それぞれのbeatPulse相当の値(発火時1→指数減衰) */
-function computeTriggers(now: number): [number, number, number] {
-  return triggerFiredAt.map((firedAt) => {
-    if (firedAt === 0) return 0;
-    const elapsedSec = (now - firedAt) / 1000;
-    return Math.exp(-elapsedSec / TRIGGER_PULSE_DECAY_TAU);
-  }) as [number, number, number];
+/** 押している間、パッドの値・ドット表示位置を更新する。 */
+function setPad(x: number, y: number) {
+  padX = x;
+  padY = y;
+  fxPadDotEl.style.left = `${((x + 1) / 2) * 100}%`;
+  fxPadDotEl.style.top = `${((y + 1) / 2) * 100}%`;
+  fxPadDotEl.hidden = false;
 }
 
-/** 表示中の投影窓のいずれかがそのトリガー番号に対応する演出を持っていれば、ボタンを有効化する。 */
-function updateTriggerButtonStates() {
-  const supported = [false, false, false];
-  displays.forEach((entry) => {
-    const names = entry.currentLayer.scene.triggerEffectNames;
-    if (!names) return;
-    names.forEach((name, i) => {
-      if (name) supported[i] = true;
-    });
-  });
-  triggerButtons.forEach((btn, i) => {
-    btn.disabled = !supported[i];
-  });
+/** 指を離したとき、パッドの値を0(未操作)に戻す。 */
+function clearPad() {
+  padX = 0;
+  padY = 0;
+  fxPadDotEl.hidden = true;
+}
+
+/** 表示中の投影窓のいずれかがFXパッドに対応した演出を持っていれば、パッドを有効化する。 */
+function updateFxPadEnabled() {
+  const supported = [...displays.values()].some((entry) => entry.currentLayer.scene.padSupported);
+  fxPadEl.classList.toggle("disabled", !supported);
 }
 
 const audio = new AudioAnalyzer();
@@ -1025,8 +1020,56 @@ micToggleBtn.addEventListener("click", () => {
   toggleMic();
 });
 
-triggerButtons.forEach((btn, i) => {
-  btn.addEventListener("click", () => fireTrigger(i as 0 | 1 | 2));
+// FXパッド([specs/015-fx-pad.md](../specs/015-fx-pad.md)参照)。Pointer Captureにより、
+// パッド外へドラッグしても(クランプした上で)値を更新し続けられる。
+fxPadEl.addEventListener("pointerdown", (e) => {
+  if (fxPadEl.classList.contains("disabled")) return;
+  fxPadEl.setPointerCapture(e.pointerId);
+  const { x, y } = pointerToPad(e);
+  setPad(x, y);
+});
+fxPadEl.addEventListener("pointermove", (e) => {
+  if (!fxPadEl.hasPointerCapture(e.pointerId)) return;
+  const { x, y } = pointerToPad(e);
+  setPad(x, y);
+});
+fxPadEl.addEventListener("pointerup", (e) => {
+  if (fxPadEl.hasPointerCapture(e.pointerId)) fxPadEl.releasePointerCapture(e.pointerId);
+  clearPad();
+});
+fxPadEl.addEventListener("pointercancel", clearPad);
+
+// FXパッドエリアの高さをドラッグで調整できるようにする。`localStorage`に保存し次回起動時も復元する。
+const FX_PAD_SECTION_HEIGHT_STORAGE_KEY = "norigvj-fx-pad-section-height";
+const FX_PAD_SECTION_MIN_HEIGHT = 120;
+const FX_PAD_SECTION_DEFAULT_HEIGHT = 280;
+
+function setFxPadSectionHeight(px: number) {
+  const maxHeight = window.innerHeight * 0.8;
+  const clamped = Math.min(maxHeight, Math.max(FX_PAD_SECTION_MIN_HEIGHT, px));
+  fxPadSectionEl.style.height = `${clamped}px`;
+  localStorage.setItem(FX_PAD_SECTION_HEIGHT_STORAGE_KEY, String(clamped));
+}
+
+const savedFxPadSectionHeight = Number(localStorage.getItem(FX_PAD_SECTION_HEIGHT_STORAGE_KEY));
+setFxPadSectionHeight(savedFxPadSectionHeight > 0 ? savedFxPadSectionHeight : FX_PAD_SECTION_DEFAULT_HEIGHT);
+
+let fxPadResizeStartY = 0;
+let fxPadResizeStartHeight = 0;
+fxPadResizeHandleEl.addEventListener("pointerdown", (e) => {
+  fxPadResizeHandleEl.setPointerCapture(e.pointerId);
+  fxPadResizeHandleEl.classList.add("dragging");
+  fxPadResizeStartY = e.clientY;
+  fxPadResizeStartHeight = fxPadSectionEl.getBoundingClientRect().height;
+});
+fxPadResizeHandleEl.addEventListener("pointermove", (e) => {
+  if (!fxPadResizeHandleEl.hasPointerCapture(e.pointerId)) return;
+  // 上へドラッグする(clientYが減る)ほど高さが増えるようにする
+  setFxPadSectionHeight(fxPadResizeStartHeight - (e.clientY - fxPadResizeStartY));
+});
+fxPadResizeHandleEl.addEventListener("pointerup", (e) => {
+  if (fxPadResizeHandleEl.hasPointerCapture(e.pointerId)) fxPadResizeHandleEl.releasePointerCapture(e.pointerId);
+  fxPadResizeHandleEl.classList.remove("dragging");
 });
 
 window.addEventListener("keydown", (e) => {
@@ -1038,21 +1081,8 @@ window.addEventListener("keydown", (e) => {
     setIntensity(manualIntensity + 0.1);
   } else if (e.key === "ArrowLeft") {
     setIntensity(manualIntensity - 0.1);
-  } else if (e.key === " ") {
-    // Trigger 1。button要素がフォーカスされていると標準動作でクリックされてしまうため、
-    // どこにフォーカスがあっても常にpreventDefaultする(マイクトグルだった頃からの挙動を踏襲)
-    e.preventDefault();
-    fireTrigger(0);
   } else if (!isFormField && (e.key === "m" || e.key === "M")) {
     toggleMic();
-  } else if (e.code === "MetaRight" || e.code === "ControlRight") {
-    // Trigger 2。MacはCmd右(MetaRight)、WindowsはWinキーがOSに予約されがちなためCtrl右(ControlRight)を使う
-    e.preventDefault();
-    fireTrigger(1);
-  } else if (e.code === "MetaLeft" || e.code === "ControlLeft") {
-    // Trigger 3。Mac=Cmd左(MetaLeft)、Windows=Ctrl左(ControlLeft)
-    e.preventDefault();
-    fireTrigger(2);
   }
 });
 
@@ -1086,7 +1116,6 @@ function tick() {
 
   latestTime = time;
   latestAudio = scaledLevels;
-  latestTriggers = computeTriggers(performance.now());
 
   const now = performance.now();
   if (fullAutoEnabled && now >= fullAutoNextFireAt) {
@@ -1110,7 +1139,7 @@ function tick() {
     }
   }
 
-  updateTriggerButtonStates();
+  updateFxPadEnabled();
 
   const sceneIndexByWindow: Record<string, number> = {};
   const paletteByWindow: Record<string, Palette> = {};
@@ -1132,7 +1161,7 @@ function tick() {
     sceneIndexByWindow,
     paletteByWindow,
     crossfadeByWindow,
-    trigger: lastTrigger,
+    pad: { x: padX, y: padY },
     intensity: manualIntensity,
     audio: scaledLevels,
     time,
@@ -1148,16 +1177,16 @@ function renderPreviews() {
   displays.forEach((entry) => {
     const currentWidth = entry.currentPreviewWrap.clientWidth || 1;
     const currentHeight = entry.currentPreviewWrap.clientHeight || 1;
-    renderLayer(entry.currentLayer, currentWidth, currentHeight, latestTime, latestAudio, latestTriggers);
+    renderLayer(entry.currentLayer, currentWidth, currentHeight, latestTime, latestAudio, padX, padY);
 
     // クロスフェード中は pendingLayer が currentPreviewWrap 側に重ねて表示されているため
     // そちらのサイズでレンダリングし、そうでなければ予約プレビュー欄自身のサイズを使う。
     if (entry.crossfadingInstructionId) {
-      renderLayer(entry.pendingLayer, currentWidth, currentHeight, latestTime, latestAudio, latestTriggers);
+      renderLayer(entry.pendingLayer, currentWidth, currentHeight, latestTime, latestAudio, padX, padY);
     } else {
       const pendingWidth = entry.pendingPreviewWrap.clientWidth || 1;
       const pendingHeight = entry.pendingPreviewWrap.clientHeight || 1;
-      renderLayer(entry.pendingLayer, pendingWidth, pendingHeight, latestTime, latestAudio, latestTriggers);
+      renderLayer(entry.pendingLayer, pendingWidth, pendingHeight, latestTime, latestAudio, padX, padY);
     }
   });
 

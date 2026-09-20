@@ -5,7 +5,7 @@ import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 const NUM_POINTS = 400;
 
 /**
- * リサージュ曲線を描く発光ラインのシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
+ * リサージュ曲線を描く発光ラインのシーン(WebGL)。カラーパレット対応。FXパッド対応。
  * 既存シーンは全て面(塗りつぶし)で構成されているが、これは唯一の線画表現。
  */
 const createLissajousLinesScene: SceneFactory = () => {
@@ -16,7 +16,7 @@ const createLissajousLinesScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Lissajous Lines",
     supportsPalette: true,
-    triggerEffectNames: ["Ratio Kick", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-2, 2, 2, -2, 0.1, 10);
@@ -44,13 +44,15 @@ const createLissajousLinesScene: SceneFactory = () => {
       const treble = Math.min(2, ctx.audio.treble);
       const volume = Math.min(2, ctx.audio.volume);
 
-      // Trigger 1(Ratio Kick): 発生中は周波数比に一時的なオフセットを加え、模様を大きく歪ませる
-      const ratioKick = ctx.triggers[0] * 3;
-      const freqA = 3 + bass * 2 + ratioKick;
+      // FXパッドX: 周波数比への加算オフセット(Ratio Kickの連続版)。正で模様を大きく歪ませ、
+      // 負で逆方向に歪ませる(0.5を下限にクランプし、模様が完全に潰れないようにする)
+      const ratioKick = ctx.padX * 3;
+      const freqA = Math.max(0.5, 3 + bass * 2 + ratioKick);
       const freqB = 2 + treble * 2;
 
-      // Trigger 2(Flash): 発生中は白へ寄せて発光を強める
-      const flash = ctx.triggers[1];
+      // FXパッドY: 正で白へ・負で黒へ寄せる(0で通常の配色。Flashの連続版で、Noise Fieldと同じ対称式)
+      const flash = ctx.padY;
+      const toFlash = (c: number) => (flash >= 0 ? c + (1 - c) * flash : c * (1 + flash));
 
       const positionAttr = line.geometry.getAttribute("position") as THREE.BufferAttribute;
       const colorAttr = line.geometry.getAttribute("color") as THREE.BufferAttribute;
@@ -64,13 +66,10 @@ const createLissajousLinesScene: SceneFactory = () => {
         positionAttr.setXYZ(i, x, y, 0);
 
         const colorT = i / (NUM_POINTS - 1);
-        let r = mr + (sr - mr) * colorT;
-        let g = mg + (sg - mg) * colorT;
-        let b = mb + (sb - mb) * colorT;
-        r += (1 - r) * flash;
-        g += (1 - g) * flash;
-        b += (1 - b) * flash;
-        colorAttr.setXYZ(i, r, g, b);
+        const r = mr + (sr - mr) * colorT;
+        const g = mg + (sg - mg) * colorT;
+        const b = mb + (sb - mb) * colorT;
+        colorAttr.setXYZ(i, toFlash(r), toFlash(g), toFlash(b));
       }
       positionAttr.needsUpdate = true;
       colorAttr.needsUpdate = true;

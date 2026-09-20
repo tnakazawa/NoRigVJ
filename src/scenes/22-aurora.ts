@@ -17,8 +17,8 @@ const fragmentShader = `
   uniform float uAspect;
   uniform vec3 uMainColor;
   uniform vec3 uSubColor;
-  uniform float uBrighten;
   uniform float uRipple;
+  uniform float uBrighten;
   varying vec2 vUv;
 
   // 1本のカーテン状の帯を描く。centerY(0-1)を中心にガウシアン状に減衰する明るさを返す
@@ -35,8 +35,8 @@ const fragmentShader = `
     vec2 aspectVec = vec2(uAspect, 1.0);
     vec2 p = vUv * aspectVec;
 
-    // Trigger 2(Ripple): 発生中は波の振幅を大きく強め、カーテンを激しく揺らす
-    float rippleAmp = 1.0 + uRipple * 4.0;
+    // FXパッドX: 波の振幅にオフセットを加える(正で激しく、負で穏やかに。Rippleの連続版)
+    float rippleAmp = clamp(1.0 + uRipple * 3.0, 0.0, 4.0);
     float wave1 = sin(p.x * 2.5 + uTime * 0.35) * 0.12 * rippleAmp;
     float wave2 = sin(p.x * 4.0 - uTime * 0.55 + 2.0) * 0.08 * rippleAmp;
     float wave3 = sin(p.x * 6.5 + uTime * 0.8 + bass) * 0.05 * rippleAmp;
@@ -50,15 +50,17 @@ const fragmentShader = `
     color += mix(uMainColor, uSubColor, 0.5) * b2 * 0.7;
     color += uSubColor * b3 * 0.6;
 
-    // Trigger 1(Brighten): 発生中は発光強度を一時的に強める
-    float brightness = (0.7 + volume * 0.8) * (1.0 + uBrighten * 2.5);
+    // FXパッドY: 発光強度にオフセットを加える(正で明るく、負で暗く。Brightenの連続版)。
+    // 負方向は係数を緩め下限もクランプし、少し上へ動かしただけで真っ暗にならないようにしている
+    float brightenFactor = uBrighten >= 0.0 ? 1.0 + uBrighten * 2.0 : 1.0 + uBrighten * 0.6;
+    float brightness = (0.7 + volume * 0.8) * clamp(brightenFactor, 0.1, 3.0);
     gl_FragColor = vec4(color * brightness, 1.0);
   }
 `;
 
 /**
- * カーテン状に揺らめくオーロラ光のシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
- * 複数のsin波を重ねた帯を縦方向のガウシアン減衰で描く、既存にない柔らかい光の表現。
+ * カーテン状に揺らめくオーロラ光のシーン(WebGL)。カラーパレット対応。
+ * 複数のsin波を重ねた帯を縦方向のガウシアン減衰で描く、既存にない柔らかい光の表現。FXパッド対応。
  */
 const createAuroraScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -68,7 +70,7 @@ const createAuroraScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Aurora",
     supportsPalette: true,
-    triggerEffectNames: ["Brighten", "Ripple", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -82,8 +84,8 @@ const createAuroraScene: SceneFactory = () => {
           uAspect: { value: 1 },
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
-          uBrighten: { value: 0 },
           uRipple: { value: 0 },
+          uBrighten: { value: 0 },
         },
       });
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
@@ -96,8 +98,8 @@ const createAuroraScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
-      material.uniforms.uBrighten.value = ctx.triggers[0];
-      material.uniforms.uRipple.value = ctx.triggers[1];
+      material.uniforms.uRipple.value = ctx.padX;
+      material.uniforms.uBrighten.value = ctx.padY;
       ctx.renderer.render(renderScene, camera);
     },
   };

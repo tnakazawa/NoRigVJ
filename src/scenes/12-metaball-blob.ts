@@ -5,8 +5,7 @@ import type { Scene, SceneContext, SceneFactory } from "./_shared/types";
 const vertexShader = `
   uniform float uTime;
   uniform float uBass;
-  uniform float uSpike;
-  uniform float uSmooth;
+  uniform float uPadY;
   varying float vElevation;
   varying vec3 vViewPosition;
 
@@ -14,10 +13,15 @@ const vertexShader = `
     // Intensity(0〜9倍)を上げても変化が続くよう上限は高めにクランプする
     float bass = clamp(uBass, 0.0, 3.0);
 
-    // Trigger 3(Smooth)発生中は変位量そのものを0へ絞り込み、一時的に真球へ近づける
-    float amp = (0.15 + bass * 0.35) * (1.0 - uSmooth);
-    // Trigger 2(Spike)発生中は変位量を大幅に増幅し、トゲトゲに変形させる
-    amp += uSpike * 0.9;
+    float amp = 0.15 + bass * 0.35;
+    // FXパッドY: 変位量そのものを増減する(Spike/Smoothの連続版、両者は変位量を増やす/絞る
+    // という逆方向の操作なので1軸にまとめられる)。正で変位を増幅してトゲトゲに(Spike)、
+    // 負で変位を0へ絞り込み真球に近づける(Smooth)。X軸は元のトリガーがこの1軸に統合できたため未使用
+    if (uPadY >= 0.0) {
+      amp += uPadY * 0.9;
+    } else {
+      amp *= (1.0 + uPadY);
+    }
 
     vec3 dir = normalize(position);
     // 複数のsin波を方向ベクトルの各成分に重ねて合成し、有機的な塊のうねりを作る
@@ -61,7 +65,7 @@ const fragmentShader = `
 
 /**
  * 頂点シェーダーでsin波合成の変位を加えた、有機的にうねる球体のシーン(WebGL)。カラーパレット対応。
- * 手動トリガー2種対応。marching cubes等の本格的なメタボール実装ではなく、IcosahedronGeometryの
+ * FXパッド対応(Y軸のみ)。marching cubes等の本格的なメタボール実装ではなく、IcosahedronGeometryの
  * 頂点を変形するだけの簡易版(誇大化を避けるため)。
  */
 const createMetaballBlobScene: SceneFactory = () => {
@@ -72,7 +76,7 @@ const createMetaballBlobScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Metaball Blob",
     supportsPalette: true,
-    triggerEffectNames: ["Spike", "Smooth", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -87,8 +91,7 @@ const createMetaballBlobScene: SceneFactory = () => {
           uTime: { value: 0 },
           uBass: { value: 0 },
           uVolume: { value: 0 },
-          uSpike: { value: 0 },
-          uSmooth: { value: 0 },
+          uPadY: { value: 0 },
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
         },
@@ -103,9 +106,7 @@ const createMetaballBlobScene: SceneFactory = () => {
       material.uniforms.uTime.value = ctx.time;
       material.uniforms.uBass.value = ctx.audio.bass;
       material.uniforms.uVolume.value = ctx.audio.volume;
-      // Trigger 1(Spike) / Trigger 2(Smooth)
-      material.uniforms.uSpike.value = ctx.triggers[0];
-      material.uniforms.uSmooth.value = ctx.triggers[1];
+      material.uniforms.uPadY.value = ctx.padY;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
 

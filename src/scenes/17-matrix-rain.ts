@@ -34,8 +34,8 @@ const fragmentShader = `
     float cols = 40.0;
     float col = floor(p.x * cols / aspectVec.x);
     float colSeed = hash(vec2(col, 0.0));
-    // Trigger 1(Speed Burst): 発生中は列の流れ速度を大幅にブーストする
-    float speed = 0.4 + colSeed * 1.2 + bass * 0.6 + uSpeedBoost * 4.0;
+    // FXパッドX: 列の流れ速度にオフセットを加える(正で加速、負で減速。Speed Burstの連続版)
+    float speed = max(0.05, 0.4 + colSeed * 1.2 + bass * 0.6 + uSpeedBoost * 3.0);
     // 列ごとにランダムな位相を持たせ、上から下へ流れる先頭位置(0-1)を求める
     float head = fract(uTime * speed + colSeed * 10.0);
 
@@ -54,8 +54,12 @@ const fragmentShader = `
     // 先頭付近だけsub色で明るく光らせる(古典的なデジタル雨の演出)
     color += uSubColor * smoothstep(0.05, 0.0, dist) * glyph;
 
-    // Trigger 2(Flash): 発生中は全体を白へ寄せる
-    color = mix(color, vec3(1.0), uFlash);
+    // FXパッドY: 白(正)/黒(負)へ寄せる対称式(Flashの連続版)
+    if (uFlash >= 0.0) {
+      color = color + (1.0 - color) * uFlash;
+    } else {
+      color = color * (1.0 + uFlash);
+    }
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -63,8 +67,9 @@ const fragmentShader = `
 
 /**
  * デジタル文字風のブロックが列ごとに上から下へ流れ落ちるシーン(WebGL)。カラーパレット対応
- * (mainが文字色、subが先頭のハイライト色)。手動トリガー2種対応。実際の文字グリフは描画せず、
+ * (mainが文字色、subが先頭のハイライト色)。実際の文字グリフは描画せず、
  * 格子状のON/OFFパターンで「文字列が流れる」印象を作る(誇大化を避けるため、フォントレンダリングは行わない)。
+ * FXパッド対応。
  */
 const createMatrixRainScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -74,7 +79,7 @@ const createMatrixRainScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Matrix Rain",
     supportsPalette: true,
-    triggerEffectNames: ["Speed Burst", "Flash", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -100,8 +105,8 @@ const createMatrixRainScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
-      material.uniforms.uSpeedBoost.value = ctx.triggers[0];
-      material.uniforms.uFlash.value = ctx.triggers[1];
+      material.uniforms.uSpeedBoost.value = ctx.padX;
+      material.uniforms.uFlash.value = ctx.padY;
       ctx.renderer.render(renderScene, camera);
     },
   };

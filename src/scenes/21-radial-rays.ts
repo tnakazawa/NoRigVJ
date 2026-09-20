@@ -17,8 +17,8 @@ const fragmentShader = `
   uniform float uAspect;
   uniform vec3 uMainColor;
   uniform vec3 uSubColor;
-  uniform float uBurst;
   uniform float uSpin;
+  uniform float uBurst;
   varying vec2 vUv;
 
   void main() {
@@ -29,7 +29,7 @@ const fragmentShader = `
     vec2 aspectVec = vec2(uAspect, 1.0);
     vec2 p = (vUv - 0.5) * aspectVec;
 
-    // Trigger 2(Spin): 発生中は回転速度を一時的にブーストする
+    // FXパッドX: 回転速度にオフセットを加える(正で加速、負で逆回転。Spinの連続版)
     float rotation = uTime * (0.15 + uSpin * 2.0);
     float angle = atan(p.y, p.x) + rotation;
     float dist = length(p);
@@ -41,19 +41,20 @@ const fragmentShader = `
     rays = rays * 0.5 + 0.5;
     rays = pow(clamp(rays, 0.0, 1.0), 2.0);
 
-    // Trigger 1(Burst): 発生中は中心の発光範囲を大きく広げる
-    float falloffRange = 1.0 + uBurst * 2.5;
+    // FXパッドY: 発光範囲を広げる/狭める(正で広げる、負で狭める。Burstの連続版)
+    float falloffRange = clamp(1.0 + uBurst * 2.0, 0.1, 3.0);
     float falloff = smoothstep(falloffRange, 0.0, dist);
 
     vec3 color = mix(uMainColor, uSubColor, clamp(dist, 0.0, 1.0));
-    float brightness = rays * falloff * (0.6 + volume * 0.8 + uBurst * 1.5);
+    float brightness = rays * falloff * clamp(0.6 + volume * 0.8 + uBurst * 1.2, 0.0, 3.0);
     gl_FragColor = vec4(color * brightness, 1.0);
   }
 `;
 
 /**
- * 中心から放射する光線が明滅するシーン(WebGL)。カラーパレット対応。手動トリガー2種対応。
+ * 中心から放射する光線が明滅するシーン(WebGL)。カラーパレット対応。
  * Plasma Lava/Kaleidoscopeと同じフルスクリーンquad方式だが、放射状の光線という見た目で差別化している。
+ * FXパッド対応。
  */
 const createRadialRaysScene: SceneFactory = () => {
   let renderScene: THREE.Scene;
@@ -63,7 +64,7 @@ const createRadialRaysScene: SceneFactory = () => {
   const scene: Scene = {
     name: "Radial Rays",
     supportsPalette: true,
-    triggerEffectNames: ["Burst", "Spin", undefined],
+    padSupported: true,
     init() {
       renderScene = new THREE.Scene();
       camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -77,8 +78,8 @@ const createRadialRaysScene: SceneFactory = () => {
           uAspect: { value: 1 },
           uMainColor: { value: new THREE.Vector3() },
           uSubColor: { value: new THREE.Vector3() },
-          uBurst: { value: 0 },
           uSpin: { value: 0 },
+          uBurst: { value: 0 },
         },
       });
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
@@ -91,8 +92,8 @@ const createRadialRaysScene: SceneFactory = () => {
       material.uniforms.uAspect.value = ctx.width / ctx.height;
       material.uniforms.uMainColor.value.set(...hexToRgb(ctx.palette.main));
       material.uniforms.uSubColor.value.set(...hexToRgb(ctx.palette.sub));
-      material.uniforms.uBurst.value = ctx.triggers[0];
-      material.uniforms.uSpin.value = ctx.triggers[1];
+      material.uniforms.uSpin.value = ctx.padX;
+      material.uniforms.uBurst.value = ctx.padY;
       ctx.renderer.render(renderScene, camera);
     },
   };
