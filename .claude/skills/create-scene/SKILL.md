@@ -12,7 +12,7 @@ description: 何らかのインスピレーション元(テキストの説明・
 着手前に以下を読み、既存の型・パターン・注意点を把握する(すでに読んでいれば読み直し不要)。
 
 - [src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md) — シーン一覧、追加手順、既知の注意点(audioのクランプ方針、フルスクリーンquadのaspect補正、`dFdx`/`dFdy`の扱いなど)
-- [src/scenes/_shared/types.ts](../../../src/scenes/_shared/types.ts) — `Scene`/`SceneContext`/`SceneFactory`/`TriggerEffectNames`の型定義
+- [src/scenes/_shared/types.ts](../../../src/scenes/_shared/types.ts) — `Scene`/`SceneContext`/`SceneFactory`の型定義(`SceneContext.padX`/`padY`がFXパッドの値)
 - 既存シーンのうち、今回作るものと近い実装パターンを持つファイル1〜2本(例: フルスクリーンquad+シェーダーなら`05-plasma-lava.ts`、`InstancedMesh`なら`02-bar-spectrum.ts`)
 
 ## 手順
@@ -27,12 +27,14 @@ description: 何らかのインスピレーション元(テキストの説明・
 
 解釈した内容を1〜2文で要約し、「こういう見た目・動きのシーンとして実装する」という方向性をユーザーに一度提示して簡単な確認を得る(大きく外れたまま実装に進まないため)。このとき、既存32+シーンと印象が被らないよう、[src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md)のシーン一覧をざっと確認し、似た構図・技法のシーンが既にあれば差別化ポイントも一言添える。
 
-### 2. トリガー対応を質問形式+自由回答で決める
+### 2. FXパッド対応を質問形式+自由回答で決める
 
-「このシーンに手動トリガー(Trigger 1/2/3)を付けるか」を聞く。[specs/007-manual-trigger.md](../../../specs/007-manual-trigger.md)の通り、0〜3個の任意個数でよく、無理に3つ埋める必要はない。
+「このシーンにFXパッド(padX/padY)対応を付けるか」を聞く。[specs/015-fx-pad.md](../../../specs/015-fx-pad.md)の通り、X軸・Y軸それぞれに任意の演出を割り当てる形式で、無理に両軸埋める必要はない(例: `12-metaball-blob.ts`はY軸のみ)。
 
-- 個数(0〜3)を質問形式(選択肢)で聞く。
-- 1個以上つける場合、それぞれどんな演出にしたいかを自由回答で聞く。迷っているようなら、既存シーンでよく使われるパターン(Flash=白飛び、Burst/Kick=一時的な増幅、Invert=配色反転、Freeze=一時停止、Zoom=拡縮)を例として提示してよい。
+- 対応するかどうかをまず質問形式(選択肢)で聞く。
+- 対応する場合、X軸・Y軸それぞれどんな演出にしたいかを自由回答で聞く。迷っているようなら、[src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md)のFXパッド一覧にある2つの設計パターンを説明するとよい:
+  - **量的エフェクト**(半径・高さ・速度など): 値(`ctx.padX`/`ctx.padY`)をそのまま使う。正方向・負方向で自然に効果が反転する(例: 正で膨らむ・負で縮む)。
+  - **比率的エフェクト**(配色反転度合いなど): `Math.abs()`で絶対値を使う。中心からの距離だけが効き、正負どちらに動かしても同じ効果になる(左右対称)。
 
 ### 3. カラーパレット対応を質問形式+自由回答で決める
 
@@ -41,7 +43,7 @@ description: 何らかのインスピレーション元(テキストの説明・
 ### 4. ファイル名・実装方針を決めて実装する
 
 - 既存ファイルの最大連番+1を`NN`とし、`src/scenes/NN-scene-name.ts`を作成する(`scene-name`はシーン名から機械的に生成する英語kebab-case)。
-- [src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md)の「シーン追加の手順」の通り、`SceneFactory`を`default export`し、`supportsPalette`・(対応するなら)`triggerEffectNames`を実装する。
+- [src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md)の「シーン追加の手順」の通り、`SceneFactory`を`default export`し、`supportsPalette`・(対応するなら)`padSupported: true`を実装し、`render(ctx)`内で`ctx.padX`/`ctx.padY`を使う。
 - 「既知の注意点」(audioのクランプ上限の選び方、フルスクリーンquadでの`uAspect`補正、`dFdx`/`dFdy`の扱いなど)に反していないか確認する。
 
 ### 5. ビルド確認
@@ -56,13 +58,13 @@ npx tsc --noEmit && npm run build
 
 [CLAUDE.md](../../../CLAUDE.md)の「開発フロー」の通り、実装内容に合わせて以下を同じタイミングで更新する。
 
-- [README.md](../../../README.md) — 「Scenes」一覧に1行追加。トリガー対応したなら「Manual trigger effects」の一覧にも追加し、シーン総数(`33 of the 33 scenes` 等の分母)を更新する。
-- [src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md) — シーン一覧・シーン総数・(該当すれば)トリガー対応シーン一覧を更新する。
-- [src/CLAUDE.md](../../../src/CLAUDE.md) — トリガー対応シーン数の分母を更新する(該当する場合)。
+- [README.md](../../../README.md) — 「Scenes」一覧に1行追加。FXパッド対応したなら「FX Pad」の一覧にも追加し、対応シーン数(`except Blank` 等の分母)を更新する。
+- [src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md) — シーン一覧・(該当すれば)FXパッド対応シーン一覧・対応シーン数の分母を更新する。
+- [src/CLAUDE.md](../../../src/CLAUDE.md) — FXパッド対応シーン数の分母を更新する(該当する場合)。
 
 ### 7. ブラウザで動作確認する
 
-Browser paneでdevサーバーを開き、投影窓を1つ追加してシーン選択セレクトから今回追加したシーンを選び、スクリーンショットで見た目を確認する。パレット対応するなら別パレットへの切替、トリガー対応するなら各トリガーボタン押下時の見た目の変化も確認する。
+Browser paneでdevサーバーを開き、投影窓を1つ追加してシーン選択セレクトから今回追加したシーンを選び、スクリーンショットで見た目を確認する。パレット対応するなら別パレットへの切替、FXパッド対応するならX軸・Y軸それぞれ正負にドラッグしたときの見た目の変化も確認する。
 
 ### 8. 完了報告
 
