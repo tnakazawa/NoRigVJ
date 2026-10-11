@@ -1,0 +1,26 @@
+name: CI
+
+# mainへのpushはdeploy.ymlがテスト→ビルド→デプロイを行うため、ここでは対象外にする(二重実行の回避)。
+on:
+  push:
+    branches-ignore: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

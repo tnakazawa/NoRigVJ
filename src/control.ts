@@ -1,6 +1,7 @@
 import { AudioAnalyzer, type AudioLevels } from "./audio";
 import { startCrossfade } from "./crossfade";
 import { createLayer, disposeLayer, renderLayer, resizeLayer, type Layer } from "./layer";
+import { normalizePadPosition } from "./pad";
 import { createPaletteDropdown, type PaletteDropdown } from "./palette-dropdown";
 import { DEFAULT_PALETTE, PALETTE_PRESETS } from "./palettes";
 import { deletePreset, loadPresets, savePreset } from "./presets";
@@ -78,10 +79,7 @@ let sequenceIndex = -1;
 
 /** パッド内でのpointerイベント座標を、パッド範囲でクランプした-1〜1のx,yに変換する(中心が0,0)。 */
 function pointerToPad(event: PointerEvent): { x: number; y: number } {
-  const rect = fxPadEl.getBoundingClientRect();
-  const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  const y = ((event.clientY - rect.top) / rect.height) * 2 - 1;
-  return { x: Math.min(1, Math.max(-1, x)), y: Math.min(1, Math.max(-1, y)) };
+  return normalizePadPosition(event.clientX, event.clientY, fxPadEl.getBoundingClientRect());
 }
 
 /** 押している間、パッドの値・ドット表示位置を更新する。 */

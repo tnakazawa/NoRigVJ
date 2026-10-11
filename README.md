@@ -8,7 +8,7 @@ No special audio interface or MIDI gear required.
 
 https://tnakazawa.github.io/NoRigVJ/
 
-Hosted on GitHub Pages, built and deployed automatically from the `main` branch via [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+Hosted on GitHub Pages, built and deployed automatically from the `main` branch via [.github/workflows/deploy.yml](.github/workflows/deploy.yml). The tests run first, so a failing test blocks the deploy. Pushes to other branches run type-check, tests, and build via [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## Setup
 
@@ -154,6 +154,15 @@ The UI is in English.
 npm run build
 npm run preview
 ```
+
+## Test
+
+```bash
+npm test             # run all tests once
+npm run test:watch   # re-run on file changes
+```
+
+Tests use [Vitest](https://vitest.dev/) and cover the non-visual logic: crossfade timing, FX Pad coordinate mapping, scene/sequence preset persistence, color helpers, and scene metadata invariants. Rendering itself (shaders, WebGL output) is not tested automatically — check it visually in the browser.
 
 ## Developer docs
 

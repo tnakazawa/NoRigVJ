@@ -14,9 +14,20 @@ npm run dev       # 開発サーバ起動(通常 http://localhost:5173)
 npm run build     # tsc -b (型チェック) → vite build
 npm run preview   # ビルド成果物のプレビュー
 npx tsc --noEmit  # 型チェックのみ実行
+npm test          # Vitest(jsdom)で全テストを1回実行
+npm run test:watch # ファイル変更を監視してテストを再実行
+npx vitest run src/crossfade.test.ts  # 単一ファイルのみ実行
 ```
 
-テストは未整備。単体テストコマンドなし。
+## テスト方針
+
+テストは [Vitest](https://vitest.dev/) + jsdom([vitest.config.ts](vitest.config.ts))。`src/` 配下に対象ファイルと同じ場所へ `*.test.ts` として置く。**ロジック層(状態同期のタイミング・座標変換・localStorage永続化・色計算・シーンのメタデータ不変条件)を対象とし、シェーダーや描画結果の見た目はテストしない**(WebGLが必要でピクセル比較は脆いため。見た目はブラウザでの目視確認で担保する)。
+
+- CI/CD(GitHub Actions、Node 20): `main` へのpushは [.github/workflows/deploy.yml](.github/workflows/deploy.yml) が `npm ci` → `npm test` → `npm run build` → デプロイの順に実行し、**テストが落ちるとデプロイされない**。`main` 以外のブランチへのpushは [.github/workflows/ci.yml](.github/workflows/ci.yml) が `npm ci` → `npm test` → `npm run build`(`tsc -b` による型チェック含む)を実行する(mainはdeploy.ymlが担うため対象外で、二重実行しない)。
+- `control.ts` / `display.ts` はimportした時点でDOM・`BroadcastChannel`・`Worker`に副作用を持つためテストから直接importできない。テストしたいロジックは `pad.ts` のように副作用のない別モジュールへ切り出してから、そちらをテストする。
+- `layer.ts` はthree.jsの`WebGLRenderer`に依存するため、それを使うモジュール(`crossfade.ts`)のテストでは `vi.mock("./layer")` でレイヤー操作だけをモックする。タイマーは `vi.useFakeTimers()` で制御する。
+- ロジック層のバグを直したときは、再発を検知できる回帰テストの追加を検討する(例: [crossfade.test.ts](src/crossfade.test.ts)の「durationMs <= 0」。`TICK_INTERVAL_MS * 2` の遅延を0へ戻すと落ちる)。
+- [src/scenes/scenes.test.ts](src/scenes/scenes.test.ts) は新規シーンも自動的に検査する(名前の重複なし・Blank以外はFXパッド対応・パレット非対応はBlankとRainbowのみ)。意図的にこの不変条件を変えるシーンを追加する場合は、このテストも更新する。
 
 ## 開発フロー(仕様駆動開発)
 

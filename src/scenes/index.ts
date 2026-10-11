@@ -4,7 +4,8 @@ import type { SceneFactory } from "./_shared/types";
 // ファイル名の連番プレフィックス(01-, 02-, ...)で並び順・キー割当(1, 2, 3...)が決まる。
 // 新しいシーンを追加したい場合は、ここに手動登録する必要はなく、
 // `NN-scene-name.ts` として default export で SceneFactory を返すファイルを置くだけでよい。
-const modules = import.meta.glob<{ default: SceneFactory }>("./*.ts", { eager: true });
+// テストファイル(*.test.ts)はシーンではないので収集対象から除外する。
+const modules = import.meta.glob<{ default: SceneFactory }>(["./*.ts", "!./*.test.ts"], { eager: true });
 
 /** ビルド時に自動収集された、ファイル名の連番順の全シーンのファクトリ。 */
 export const sceneFactories: SceneFactory[] = Object.keys(modules)
