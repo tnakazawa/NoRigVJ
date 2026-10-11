@@ -23,7 +23,7 @@ npx vitest run src/crossfade.test.ts  # 単一ファイルのみ実行
 
 テストは [Vitest](https://vitest.dev/) + jsdom([vitest.config.ts](vitest.config.ts))。`src/` 配下に対象ファイルと同じ場所へ `*.test.ts` として置く。**ロジック層(状態同期のタイミング・座標変換・localStorage永続化・色計算・シーンのメタデータ不変条件)を対象とし、シェーダーや描画結果の見た目はテストしない**(WebGLが必要でピクセル比較は脆いため。見た目はブラウザでの目視確認で担保する)。
 
-- CI/CD(GitHub Actions、Node 20): `main` へのpushは [.github/workflows/deploy.yml](.github/workflows/deploy.yml) が `npm ci` → `npm test` → `npm run build` → デプロイの順に実行し、**テストが落ちるとデプロイされない**。`main` 以外のブランチへのpushは [.github/workflows/ci.yml](.github/workflows/ci.yml) が `npm ci` → `npm test` → `npm run build`(`tsc -b` による型チェック含む)を実行する(mainはdeploy.ymlが担うため対象外で、二重実行しない)。
+- CI/CD(GitHub Actions、Node 24、runnerは`ubuntu-26.04`固定): `ubuntu-latest`は2026年10月から順次Ubuntu 26.04へ移行される予告があり警告が出るため、移行を前倒しして明示している。使用しているactionはNode 24対応の最新メジャー(`checkout@v7` / `setup-node@v7` / `upload-pages-artifact@v5` / `deploy-pages@v5`)。`main` へのpushは [.github/workflows/deploy.yml](.github/workflows/deploy.yml) が `npm ci` → `npm test` → `npm run build` → デプロイの順に実行し、**テストが落ちるとデプロイされない**。`main` 以外のブランチへのpushは [.github/workflows/ci.yml](.github/workflows/ci.yml) が `npm ci` → `npm test` → `npm run build`(`tsc -b` による型チェック含む)を実行する(mainはdeploy.ymlが担うため対象外で、二重実行しない)。
 - `control.ts` / `display.ts` はimportした時点でDOM・`BroadcastChannel`・`Worker`に副作用を持つためテストから直接importできない。テストしたいロジックは `pad.ts` のように副作用のない別モジュールへ切り出してから、そちらをテストする。
 - `layer.ts` はthree.jsの`WebGLRenderer`に依存するため、それを使うモジュール(`crossfade.ts`)のテストでは `vi.mock("./layer")` でレイヤー操作だけをモックする。タイマーは `vi.useFakeTimers()` で制御する。
 - ロジック層のバグを直したときは、再発を検知できる回帰テストの追加を検討する(例: [crossfade.test.ts](src/crossfade.test.ts)の「durationMs <= 0」。`TICK_INTERVAL_MS * 2` の遅延を0へ戻すと落ちる)。
