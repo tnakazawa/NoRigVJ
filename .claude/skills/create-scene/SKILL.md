@@ -11,7 +11,7 @@ description: 何らかのインスピレーション元(テキストの説明・
 
 着手前に以下を読み、既存の型・パターン・注意点を把握する(すでに読んでいれば読み直し不要)。
 
-- [src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md) — シーン一覧、追加手順、既知の注意点(audioのクランプ方針、フルスクリーンquadのaspect補正、`dFdx`/`dFdy`の扱いなど)
+- [src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md) — 追加手順、FXパッドの設計パターン、既知の注意点(audioのクランプ方針、フルスクリーンquadのaspect補正、`dFdx`/`dFdy`の扱いなど)
 - [src/scenes/_shared/types.ts](../../../src/scenes/_shared/types.ts) — `Scene`/`SceneContext`/`SceneFactory`の型定義(`SceneContext.padX`/`padY`がFXパッドの値)
 - 既存シーンのうち、今回作るものと近い実装パターンを持つファイル1〜2本(例: フルスクリーンquad+シェーダーなら`05-plasma-lava.ts`、`InstancedMesh`なら`02-bar-spectrum.ts`)
 
@@ -25,14 +25,14 @@ description: 何らかのインスピレーション元(テキストの説明・
 - **画像**: 画像を実際に見て、色使い・形状・質感・動きの印象を自分の言葉で言語化する。
 - **テキストの説明**: そのまま解釈の材料にする。
 
-解釈した内容を1〜2文で要約し、「こういう見た目・動きのシーンとして実装する」という方向性をユーザーに一度提示して簡単な確認を得る(大きく外れたまま実装に進まないため)。このとき、既存32+シーンと印象が被らないよう、[src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md)のシーン一覧をざっと確認し、似た構図・技法のシーンが既にあれば差別化ポイントも一言添える。
+解釈した内容を1〜2文で要約し、「こういう見た目・動きのシーンとして実装する」という方向性をユーザーに一度提示して簡単な確認を得る(大きく外れたまま実装に進まないため)。このとき、既存シーンと印象が被らないよう、[README.md](../../../README.md)の「Scenes」一覧をざっと確認し、似た構図・技法のシーンが既にあれば差別化ポイントも一言添える。
 
 ### 2. FXパッド対応を質問形式+自由回答で決める
 
 「このシーンにFXパッド(padX/padY)対応を付けるか」を聞く。[specs/015-fx-pad.md](../../../specs/015-fx-pad.md)の通り、X軸・Y軸それぞれに任意の演出を割り当てる形式で、無理に両軸埋める必要はない(例: `12-metaball-blob.ts`はY軸のみ)。
 
 - 対応するかどうかをまず質問形式(選択肢)で聞く。
-- 対応する場合、X軸・Y軸それぞれどんな演出にしたいかを自由回答で聞く。迷っているようなら、[src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md)のFXパッド一覧にある2つの設計パターンを説明するとよい:
+- 対応する場合、X軸・Y軸それぞれどんな演出にしたいかを自由回答で聞く。迷っているようなら、[src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md)の「FXパッド」節にある設計パターンを説明するとよい:
   - **量的エフェクト**(半径・高さ・速度など): 値(`ctx.padX`/`ctx.padY`)をそのまま使う。正方向・負方向で自然に効果が反転する(例: 正で膨らむ・負で縮む)。
   - **比率的エフェクト**(配色反転度合いなど): `Math.abs()`で絶対値を使う。中心からの距離だけが効き、正負どちらに動かしても同じ効果になる(左右対称)。
 
@@ -46,21 +46,20 @@ description: 何らかのインスピレーション元(テキストの説明・
 - [src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md)の「シーン追加の手順」の通り、`SceneFactory`を`default export`し、`supportsPalette`・(対応するなら)`padSupported: true`を実装し、`render(ctx)`内で`ctx.padX`/`ctx.padY`を使う。
 - 「既知の注意点」(audioのクランプ上限の選び方、フルスクリーンquadでの`uAspect`補正、`dFdx`/`dFdy`の扱いなど)に反していないか確認する。
 
-### 5. ビルド確認
+### 5. ビルド・テスト確認
 
 ```bash
-npx tsc --noEmit && npm run build
+npx tsc --noEmit && npm test && npm run build
 ```
 
-型エラー・ビルドエラーが出た場合は解消してから次に進む。
+型エラー・テスト失敗・ビルドエラーが出た場合は解消してから次に進む。`npm test` には全シーンを自動検査する[scenes.test.ts](../../../src/scenes/scenes.test.ts)(名前の重複なし・Blank以外はFXパッド対応・パレット非対応はBlankとRainbowのみ)が含まれ、新規シーンもここで検査される。
 
 ### 6. ドキュメント更新
 
-[CLAUDE.md](../../../CLAUDE.md)の「開発フロー」の通り、実装内容に合わせて以下を同じタイミングで更新する。
+[CLAUDE.md](../../../CLAUDE.md)の「ドキュメントの更新」の通り、実装内容に合わせて以下を同じタイミングで更新する。
 
-- [README.md](../../../README.md) — 「Scenes」一覧に1行追加。FXパッド対応したなら「FX Pad」の一覧にも追加し、対応シーン数(`except Blank` 等の分母)を更新する。
-- [src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md) — シーン一覧・(該当すれば)FXパッド対応シーン一覧・対応シーン数の分母を更新する。
-- [src/CLAUDE.md](../../../src/CLAUDE.md) — FXパッド対応シーン数の分母を更新する(該当する場合)。
+- [README.md](../../../README.md) — 「Scenes」一覧に1行追加。FXパッド対応したなら「FX Pad」の一覧にも追加し、対応シーン数の記述(`except Blank` など)が変わるなら更新する。
+- 「パレット非対応はBlankとRainbowのみ」「FXパッド非対応はBlankのみ」という不変条件を変えるシーンの場合だけ、[src/scenes/CLAUDE.md](../../../src/scenes/CLAUDE.md)の該当記述と[scenes.test.ts](../../../src/scenes/scenes.test.ts)も更新する(シーン一覧は[README.md](../../../README.md)だけが持つ)。
 
 ### 7. ブラウザで動作確認する
 
@@ -68,4 +67,4 @@ Browser paneでdevサーバーを開き、投影窓を1つ追加してシーン�
 
 ### 8. 完了報告
 
-作成したファイル・変更したドキュメント・確認したスクリーンショットをまとめてユーザーに報告する。**コミットはユーザーから明示的に依頼されるまで行わない**([CLAUDE.md](../../../CLAUDE.md)のGit運用方針の通り)。
+作成したファイル・変更したドキュメント・確認したスクリーンショットをまとめてユーザーに報告する。**コミットはユーザーから明示的に依頼されるまで行わない**([CLAUDE.md](../../../CLAUDE.md)の「ブランチ運用」の通り、作業専用ブランチで進める)。

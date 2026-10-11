@@ -2,70 +2,45 @@
 
 `src/` 直下(`scenes/` を除く)を触るときのガイド。シーンの実装自体は [src/scenes/CLAUDE.md](scenes/CLAUDE.md) を参照。ルートの案内は [../CLAUDE.md](../CLAUDE.md)。
 
+操作方法・機能の説明は [../README.md](../README.md)、各機能の挙動の仕様は [../specs/](../specs/README.md) が正本。ここには実装の構成・設計判断の理由・落とし穴だけを書く。
+
 ## マルチウィンドウ構成
 
 操作UIと、複数持てる投影窓の構成([../specs/001-multi-window-projection.md](../specs/001-multi-window-projection.md) / [../specs/003-multiple-display-windows.md](../specs/003-multiple-display-windows.md)参照)。Viteのマルチページビルド(`vite.config.ts` の `rollupOptions.input`)で `control.html` / `display.html` の2エントリをビルドする。
 
-- **control.html + [control.ts](control.ts)** — 操作UI(UI表記は英語)。マイク解析(`AudioAnalyzer`)は全投影窓で共通の1系統のみ。「Add Display」ボタンを押すたびに新規投影窓を開き、`windowId`(`crypto.randomUUID()`)を発行して `displays: Map<windowId, DisplayEntry>` で管理する。各投影窓ごとに独立したプレビュー・シーン選択(`<select>`)・カラーパレット設定・シーンプリセットの保存/呼び出し/削除・「Crossfade」ボタンを持つ一覧UIになっている(投影窓を閉じる操作は行右上の「✕」ボタンで行う)。状態のsingle source of truthであり、`sceneIndexByWindow`(windowId → sceneIndex)・`paletteByWindow`(windowId → Palette)・`crossfadeByWindow`・強度・音声レベルを `BroadcastChannel` に送信する。プリセットの保存・削除操作は `refreshAllPresetSelects()` で画面上の全投影窓行のプリセットselectを同期し直す(プリセットは特定の投影窓に紐づかない共有ライブラリのため)。
-- **display.html + [display.ts](display.ts)** — 投影窓。起動時にURLの `windowId` クエリパラメータ(`window.open` 時に付与される)を読み取り、`BroadcastChannel` で受信した状態から `sceneIndexByWindow[windowId]` / `paletteByWindow[windowId]` / `crossfadeByWindow[windowId]` を見て描画する。操作UIとは独立して自分自身でクロスフェードのレイヤー管理・CSSトランジション・完了後の後片付けを行う(操作UI側から進捗を都度送っているわけではない)。`F` キーでFullscreen API切り替え。
-- **[shared.ts](shared.ts)** — 2画面間でやり取りする `VJState`(`sceneIndexByWindow` / `paletteByWindow` / `crossfadeByWindow` を含む)型と `BroadcastChannel` 名を定義する共有モジュール。
+- **control.html + [control.ts](control.ts)** — 操作UI(UI表記は英語)。マイク解析(`AudioAnalyzer`)は全投影窓で共通の1系統のみ。「Add Display」で新規投影窓を開き、`windowId`(`crypto.randomUUID()`)を発行して `displays: Map<windowId, DisplayEntry>` で管理する。状態のsingle source of truthであり、`sceneIndexByWindow`・`paletteByWindow`・`crossfadeByWindow`・`pad`・強度・音声レベルを `BroadcastChannel` に送信する。シーンプリセットは特定の投影窓に紐づかない共有ライブラリのため、保存・削除のたびに `refreshAllPresetSelects()` で全投影窓行のselectを同期し直す。
+- **display.html + [display.ts](display.ts)** — 投影窓。URLの `windowId` クエリパラメータ(`window.open` 時に付与)を読み、`BroadcastChannel` で受信した状態から自分の分(`sceneIndexByWindow[windowId]` など)を見て描画する。クロスフェードのレイヤー管理・CSSトランジション・後片付けは操作UIとは独立して自分で行う(操作UIから進捗は送られない)。
+- **[shared.ts](shared.ts)** — 2画面間でやり取りする `VJState` 型、`BroadcastChannel` 名、`TICK_INTERVAL_MS` を定義する共有モジュール。
 
 ## シーン切替とクロスフェード
 
 [specs/006-scene-crossfade.md](../specs/006-scene-crossfade.md)参照。シーン選択・パレット設定・プリセット選択は、投影窓の「予約」レイヤー(`DisplayEntry.pendingLayer`)を編集するだけで、表示への反映は「Crossfade」ボタンを押すまで起きない。
 
-- **[layer.ts](layer.ts)** — `Layer`(1シーン分のレンダリング一式: シーンインスタンス・WebGL用canvas・専用の`THREE.WebGLRenderer`)を生成・リサイズ・描画・破棄するための共通モジュール(全シーンWebGLのため、canvasは1枚のみ。[specs/009-webgl-only-scenes.md](../specs/009-webgl-only-scenes.md)参照)。`createLayer()` は毎回 `sceneFactories` から新規にシーンインスタンスを生成する。**シーン切替(クロスフェードの有無を問わず)は常に新しいレイヤーを生成する設計**であり、同じシーンに戻ってきても新しいインスタンスになる。したがってFeedback Loopのような蓄積系シーンの状態は、シーンを切り替えるたびにリセットされる(意図した割り切り。理由はthree.jsの`WebGLRenderTarget`が特定の`WebGLRenderer`に紐づくため、旧シーン用と新シーン用で別々のcanvas/rendererを使うクロスフェードと、「シーンごとに状態を保持し続ける」設計は両立しない)。
-- **[crossfade.ts](crossfade.ts)** — `startCrossfade()`。新レイヤーを旧レイヤーに重ねてDOMに追加し、CSSの `opacity: 0 → 1` トランジションで見た目のブレンドをブラウザのコンポジタに任せる(自前のピクセル合成は行わない)。トランジション中は旧・新レイヤー両方を毎フレームレンダリングし続け、完了後に旧レイヤーを破棄する。control.ts・display.tsの両方から呼ばれる。
-- クロスフェード実行時、`crossfadeByWindow[windowId]` に `{ id, toSceneName, toPalette, durationMs }` をセットして配信する。`id` は発生ごとに一意の値で、投影窓側はこの `id` が前回と変わったときだけ新しいクロスフェードを開始する(同じ内容を毎tick送り続けても二重に開始しないようにするため)。
-- 操作UIの各投影窓行は `currentLayer`(現在)と `pendingLayer`(次への予約)を常時両方保持・レンダリングし、「Current」「Next」のプレビューを並べて表示する。各投影窓行はプレビュー(`.preview-group`)を上、コントロール類(`.display-row-controls`)を下に配置するレイアウト(縦積み)で、コントロール類はさらに「シーン選択+カラー選択+Crossfade」「プリセット保存/呼び出し/削除」の2行(`.control-row` / `.preset-row`)に分けている。「✕」(閉じる)ボタンだけは行の右上に絶対配置(`.close-btn`)にして、コントロール一覧から独立させている。`#displays-list` は `flex-wrap: wrap` で、画面が広ければ投影窓行が2列に並ぶ(`.display-row` に `max-width: calc(50% - 6px)`)。Current/Nextプレビューは固定pxではなく `.preview-slot` の `flex` 比率(`current-slot: 1`、`pending-slot: 0.63`)で幅を分配しており、行の幅に追従してはみ出さない。「Add Display」「Enable Mic」ボタンはパネル(`#panel`)の下端に固定表示している(`.panel-footer` に `margin-top: auto`)。`pendingLayer` はクロスフェード実行時にそのまま遷移先レイヤーとして使われ(予約プレビュー用とクロスフェードのtoレイヤーを同一インスタンスに統合)、実行と同時に同じ内容の新しい `pendingLayer` が用意される(「Next」欄が空白にならないようにするため)。この設計により、操作UI側は常時2レイヤー分のレンダリングコストがかかる(投影窓側は変わらず、実際のクロスフェード中だけ2レイヤーになる)。
+- **[layer.ts](layer.ts)** — `Layer`(1シーン分のシーンインスタンス・WebGL用canvas・専用の`THREE.WebGLRenderer`)の生成・リサイズ・描画・破棄。`createLayer()` は毎回 `sceneFactories` から新規にシーンインスタンスを生成する。**シーン切替(クロスフェードの有無を問わず)は常に新しいレイヤーを作る設計**であり、同じシーンに戻っても新しいインスタンスになる。したがってFeedback Loopのような蓄積系シーンの状態は、切り替えるたびにリセットされる(意図した割り切り。three.jsの`WebGLRenderTarget`が特定の`WebGLRenderer`に紐づくため、旧シーン用と新シーン用で別々のcanvas/rendererを使うクロスフェードと、シーンごとに状態を保持し続ける設計は両立しない)。
+- **[crossfade.ts](crossfade.ts)** — `startCrossfade()`。新レイヤーを旧レイヤーに重ね、CSSの `opacity: 0 → 1` トランジションでブレンドをブラウザのコンポジタに任せる(自前のピクセル合成なし)。完了後に旧レイヤーを破棄する。control.ts・display.tsの両方から呼ばれる。
+- クロスフェード実行時、`crossfadeByWindow[windowId]` に `{ id, toSceneName, toPalette, durationMs }` をセットして配信する。投影窓側は `id` が前回と変わったときだけ新規に開始する(毎tick同じ内容を送っても二重に開始しないため)。
+- 操作UIの各投影窓行は `currentLayer` と `pendingLayer` を常時両方レンダリングする(Current/Nextプレビュー)。`pendingLayer` はクロスフェード実行時にそのまま遷移先レイヤーになり、同時に同内容の新しい `pendingLayer` が用意される(Next欄が空白にならないため)。コストとして、操作UI側は常に2レイヤー分のレンダリングがかかる(投影窓側はクロスフェード中だけ2レイヤー)。
 
 ## FXパッド
 
-[specs/015-fx-pad.md](../specs/015-fx-pad.md)参照。以前は「押すと発火→時間経過で減衰」のワンショット演出(Trigger 1/2/3、[specs/007-manual-trigger.md](../specs/007-manual-trigger.md))だったが、押している間の座標で連続的に演出を操作できるXYパッド方式に置き換えた。
+[specs/015-fx-pad.md](../specs/015-fx-pad.md)参照。
 
-- `#displays-list` の下に中央揃えで新設した `#fx-pad`(投影窓の数に関わらず常に1個、正方形ではなく横長の長方形)がUI本体。`pointerdown`/`pointermove`(Pointer Capture使用)/`pointerup`/`pointercancel` を`control.ts`で処理し、押している位置を中心(0,0)・左上(-1,-1)・右下(1,1)に正規化した`padX`/`padY`を算出する(離すと即座に共に0=中心へ戻る、減衰の概念はない)。
-- `SceneContext.padX`/`padY`(共に-1〜1、中心が0)として全シーンの`render()`に渡る。シーンは`Scene.padSupported?: boolean`でFXパッドに対応した演出を持つかどうかを宣言する(未対応は省略、`triggerEffectNames`に代わる仕組み)。X軸・Y軸それぞれ異なるエフェクトに使ってよく、値の符号で方向(正/負)を、絶対値で強さを表せる。半径・高さのような量的なエフェクトは符号をそのまま使い正負で方向を変え、色の反転度合いのような比率的なエフェクトは絶対値を使い中心からの距離だけが効く左右対称な演出にする、という2パターンを既存3シーンでは使い分けている。
-- `VJState.pad: { x, y }` で伝搬する(全投影窓共通、投影窓ごとの区別はない。`tick()`から毎フレーム現在値をそのまま送る、クロスフェードのような「idの変化を検知して自分で計算し直す」方式ではない)。
-- `#fx-pad`は、表示中の投影窓のいずれかが`padSupported`を持たない(または投影窓が0個の)場合、`updateFxPadEnabled()`が`.disabled`クラスを付けて無効化する。
-- FXパッド対応は`00-blank.ts`(何も描画しないため対応不可)を除く全32シーンで完了している。各シーンのX軸・Y軸の演出内容は[scenes/CLAUDE.md](scenes/CLAUDE.md)参照。
-- `#fx-pad`本体は`#fx-pad-body`(`container-type: size`)の中で`width: min(100cqw, 100cqh * 1.8)` / `height: min(100cqh, 100cqw / 1.8)`というコンテナクエリ単位の式によりサイズが決まる。これは幅・高さどちらの制約が厳しくても`1.8:1`のアスペクト比を保ったまま最大化する(`width:100%; aspect-ratio`だけだと`flex-grow`で確保した高さと競合し縦長に潰れる問題が実際に起きたための対策)。`#fx-pad-section`の高さ自体は`#displays-list`との境目の`#fx-pad-resize-handle`をドラッグして調整でき、`localStorage`(`norigvj-fx-pad-section-height`)に保存され次回起動時も復元される。
+- `SceneContext.padX`/`padY`(共に-1〜1、中心が0)として全シーンの`render()`に渡り、シーンは `Scene.padSupported` で対応を宣言する。`VJState.pad` は `tick()` が毎回現在値をそのまま送る(減衰も「idの変化を検知して自分で計算する」方式もない。離すと0に戻るだけ)。
+- `updateFxPadEnabled()` は、表示中のどの投影窓も `padSupported` でない(または投影窓が0個の)場合にだけ `#fx-pad` を無効化する。
+- 座標変換は [pad.ts](pad.ts)。`#fx-pad` のサイズは `container-type: size` + `cqw`/`cqh` でアスペクト比を保って最大化している(`width:100%; aspect-ratio` だと縦長に潰れたため。理由は仕様書の実装メモ)。パッドエリアの高さは `localStorage`(`norigvj-fx-pad-section-height`)に保存する。
 
 ## 主要ファイル
 
 - [audio.ts](audio.ts) — `AudioAnalyzer` クラス。`fftSize: 512`、`smoothingTimeConstant: 0.8` で周波数データを取得し、周波数ビンを低域0〜6%(〜1.3kHz)/中域6〜25%(〜1.3〜5.5kHz)/高域25〜100%(〜5.5〜22kHz)に分割して `volume/bass/mid/treble`(各0-1)を算出する。境界は音楽・声のエネルギーが低〜中域に集中する実態に合わせて調整済み(高域寄りに広く取りすぎると `treble` がほぼ反応しなくなる)。
-- [pad.ts](pad.ts) — `normalizePadPosition()`。FXパッド上のポインタ座標を、パッド矩形でクランプした-1〜1のx,y(中心0、左上-1、右下1)へ変換する純粋関数。DOMに依存する`control.ts`の`pointerToPad()`から切り出したもので、`control.ts`をimportせずにテストできるようにするための分離([pad.test.ts](pad.test.ts))。
-- [palettes.ts](palettes.ts) — カラーパレットのプリセット定義(`PALETTE_PRESETS`、32色)とデフォルトパレット(`DEFAULT_PALETTE`)。シーン側の `supportsPalette` については [scenes/CLAUDE.md](scenes/CLAUDE.md) を参照。
-- [palette-dropdown.ts](palette-dropdown.ts) — パレットプリセット選択用の自作ドロップダウン(`createPaletteDropdown()`)。ネイティブ `<select>` の `<option>` は多くのブラウザでOSネイティブのポップアップメニューとして描画され、`background` 等のCSSが実際の開閉時には反映されないため(`size` 属性でインライン展開した場合は通常のDOM描画になり反映されるため、検証時に見誤りやすい)、選ばずに配色を確認できるようにするには自作するしかなかった。各項目はテキストを配色で塗らず、左にmain/subの小さな色見本(`.palette-swatch`)を2つ並べる方式にしている(全面着色だと配色によって文字が読みにくくなるため)。`value`/`disabled`/`addEventListener("change", ...)` だけ `HTMLSelectElement` と同じ形にして、`control.ts` 側の変更を最小限にしている([specs/004-scene-color-palette.md](../specs/004-scene-color-palette.md)参照)。
-- [presets.ts](presets.ts) — 投影窓の「シーン名 + パレット」をユーザーが名前付きで保存する `ScenePreset` の型と `localStorage` 読み書き(`loadPresets` / `savePreset` / `deletePreset`)。シーンは `sceneIndex` ではなくシーン名で識別している(シーンファイルの追加・並び替えで既存プリセットが別のシーンを指す事故を避けるため)。保存ダイアログのデフォルト名は `${シーン名}-${メインカラー}-${サブカラー}`([control.ts](control.ts)側で組み立てる)。[specs/005-scene-presets.md](../specs/005-scene-presets.md)参照。
-- [sequence.ts](sequence.ts) — シーケンスモード([specs/013-sequence-mode.md](../specs/013-sequence-mode.md)参照)の `SequenceStep`(id・シーン名・パレット・そのステップ専用の表示時間`intervalMs`・クロスフェード時間`crossfadeDurationMs`)配列をまとめた `SequenceData` の型、`localStorage` 読み書き(`loadSequence` / `saveSequence`、編集中の1本のみ)。[presets.ts](presets.ts)と同じくシーンは名前で識別するが、同じシーンを複数ステップに登場させられるため、シーン名だけでは1ステップを特定できず、ステップごとに一意な `id` を別途持たせている。加えて、編集中の内容とは別に複数のシーケンスを名前付きで保存・呼び出し・削除できる `SequencePreset`(`loadSequencePresets` / `saveSequencePreset` / `deleteSequencePreset`、専用のlocalStorageキー)も持つ。
-- [tick-worker.ts](tick-worker.ts) — 音声解析・状態送信を駆動するtickをWorker側で刻む(理由は下記既知の注意点参照)。
+- [palettes.ts](palettes.ts) — カラーパレットのプリセット(`PALETTE_PRESETS`)と `DEFAULT_PALETTE`。シーン側の `supportsPalette` は [scenes/CLAUDE.md](scenes/CLAUDE.md) を参照。
+- [palette-dropdown.ts](palette-dropdown.ts) — パレット選択用の自作ドロップダウン。ネイティブ `<select>` の `<option>` は多くのブラウザでOSネイティブのポップアップとして描画され、`background` 等のCSSが開閉時に反映されないため、選ばずに配色を確認できるよう自作した(`size` 属性でインライン展開すると反映されるため、検証時に見誤りやすい)。項目は左にmain/subの色見本を並べる方式(テキストを配色で塗ると配色によって読みにくくなる)。`value`/`disabled`/`addEventListener("change", ...)` だけ `HTMLSelectElement` と同じ形にして、`control.ts` 側の変更を最小限にしている([specs/004-scene-color-palette.md](../specs/004-scene-color-palette.md)参照)。
+- [presets.ts](presets.ts) / [sequence.ts](sequence.ts) — シーンプリセット・シーケンスの型と `localStorage` 読み書き。シーンは `sceneIndex` ではなくシーン名で識別する(シーンファイルの追加・並び替えで別のシーンを指す事故を避けるため)。シーケンスは同じシーンを複数ステップに登場させられるため、ステップごとに一意な `id` を持つ([specs/005-scene-presets.md](../specs/005-scene-presets.md) / [specs/013-sequence-mode.md](../specs/013-sequence-mode.md)参照)。
+- [pad.ts](pad.ts) — FXパッドの座標変換の純粋関数。DOMに依存する `control.ts` から切り出して、テストできるようにしている。
+- [tick-worker.ts](tick-worker.ts) — 音声解析・状態送信を駆動するtickをWorker側で刻む(理由は下記)。
 
 ## 既知の注意点
 
 - `analyser.getByteFrequencyData()` に `Uint8Array` を渡すとTS5.5で `Uint8Array<ArrayBufferLike>` の型エラーが出るため、[audio.ts](audio.ts) 内で `as Uint8Array<ArrayBuffer>` にキャストしている。
-- 投影窓フルスクリーン化などで操作窓が他ウィンドウに完全に隠れる(occluded)と、Chromeは隠れたウィンドウの `requestAnimationFrame` だけでなく `setInterval`/`setTimeout` も最小1秒間隔にクランプする。Worker内のタイマーはこの抑制を受けないため、[control.ts](control.ts) は音声解析・状態送信を駆動するtickのタイミングを [tick-worker.ts](tick-worker.ts) に任せている。tickの間隔(`TICK_INTERVAL_MS`=33ms)は[shared.ts](shared.ts)に定数として集約しており、[crossfade.ts](crossfade.ts)もこの値を参照する(理由は[specs/006-scene-crossfade.md](../specs/006-scene-crossfade.md)の実装メモ参照。durationMs=0のクロスフェードで、tick()に最低1回は状態を観測させる必要があるため)。
-- `hidden` 属性で要素の表示・非表示を切り替える場合、その要素(またはその要素セレクタ・クラス)に `display: flex`(または `display: block` 等)を指定するCSSルールがあると、`hidden` が効かず表示されたままになることがある。原因はセレクタの詳細度ではなく、CSSカスケードの優先順位(cascade origin)そのもの — `[hidden] { display: none }` はブラウザのUser Agentスタイルシート由来であり、通常の重要度では作者(author)のスタイルシートが常にUAスタイルシートより優先されるため、詳細度に関わらず作者側の `display` 指定に負ける(control.htmlの `.modal-overlay`(クラスセレクタ)、`#auto-interval-section`(汎用`section`ルールによるもの、IDセレクタでも同様)の両方で実際に発生した)。`hidden` で消したい要素には、その要素(またはクラス/id)に対して `display: none;` を明示するルールを `[hidden]` 付きで追加すること(例: `.some-class[hidden] { display: none; }` / `#some-id[hidden] { display: none; }`)。
-- `draggable="true"` を要素に常時付けたまま、その内部に `<input type="range">` 等のインタラクティブな子要素を置くと、そのスライダーをドラッグ操作しようとした瞬間にブラウザが「要素自体のドラッグ開始」と誤認識し、スライダー操作ができなくなることがある(シーケンス編集モーダルの各ステップ行で実際に発生した)。対策として、行自体は常時 `draggable = false` にしておき、専用のドラッグハンドル要素の `mousedown`/`mouseup` でだけ一時的に `draggable` を true/false に切り替える(`control.ts` の `renderSequenceStepsList()` 参照)。
-
-## 操作方法(control.html)
-
-UI表記は英語。
-
-| キー / UI | 動作 |
-|---|---|
-| `M` キー / 「Enable Mic」/「Disable Mic」ボタン | マイク入力の有効・無効を切り替える(全投影窓共通)。無効化すると `AudioAnalyzer.stop()` でストリーム・`AudioContext` を解放する |
-| ← / → / 「Intensity」スライダー | エフェクトの強度を調整(0〜9、全投影窓共通) |
-| 「Crossfade duration」スライダー | シーン切替の遷移時間を調整(全投影窓共通) |
-| 投影窓ごとのセレクトボックス | 次に切り替えるシーンを予約(即座には反映されない) |
-| 投影窓ごとのパレットUI | プリセット選択 / メイン・サブのカラーピッカーで次に切り替える配色を予約([../specs/004-scene-color-palette.md](../specs/004-scene-color-palette.md)参照) |
-| 投影窓ごとのシーンプリセットUI(「Save Preset」/選択/「Delete」) | 現在のシーン名+パレットを名前付きで保存/削除。呼び出すと予約に反映される。`localStorage` に永続化され、全投影窓行で共有される([../specs/005-scene-presets.md](../specs/005-scene-presets.md)参照) |
-| 投影窓ごとの「Crossfade」ボタン | 予約内容が現在の表示と異なる間のみ有効。押すと現在の表示から予約内容へクロスフェードする([../specs/006-scene-crossfade.md](../specs/006-scene-crossfade.md)参照) |
-| `#displays-list`下の「FX Pad」 | 横長の長方形をクリック・ドラッグすると、押している位置(中心0、左上-1〜右下1に正規化)が全投影窓へリアルタイムに伝わる。X軸・Y軸で別のエフェクトに使われ、中心から離れるほど強くなり、符号(正/負)で方向が変わる(演出内容はシーンごとに異なる)。離すと即座に中心(0)へ戻る。投影窓の数に関わらず常に1個で、対応するシーンが1つも表示されていなければ無効化される([specs/015-fx-pad.md](../specs/015-fx-pad.md)参照。以前のTrigger 1/2/3ボタン・キー割当を置き換えた) |
-| 「Random」ボタン | セミオートモード([specs/011-semi-auto-mode.md](../specs/011-semi-auto-mode.md)参照)。表示中の各投影窓を独立にランダムなシーン(Blank除く、直前と同じシーンは選ばない)・ランダムな32色プリセットへクロスフェードし、Intensityも1回だけランダムに変更する。投影窓が1つもなければ無効化される |
-| 「Auto mode」ラジオボタン(Random / Sequence) | フルオートの実行内容を選ぶ([specs/013-sequence-mode.md](../specs/013-sequence-mode.md)参照)。`Random`(デフォルト)は下記の挙動、`Sequence`は決めた順にシーンを切り替える。切替自体はフルオートのON/OFF状態に影響しない。見出しの右に現在の状態(例: `(ON / Random)`)を常時表示する([specs/014-ui-status-and-help.md](../specs/014-ui-status-and-help.md)参照。`updateAutoToggleLabel()`が`fullAutoEnabled`/`autoMode`から毎フレーム再計算) |
-| 「Edit Sequence...」ボタン(Auto mode=Sequenceのときのみ表示) | シーケンス編集モーダルを開く。左側の全シーン一覧の「+」ボタンを押すたびに、そのシーンを右側のシーケンス末尾へ1ステップ追加する(同じシーンを何回追加してもよい)。右側のリストはドラッグハンドル(⋮⋮)を掴んでドラッグ&ドロップで並べ替えられ(ハンドル以外の場所、特にDuration/CrossfadeスライダーをクリックしてもDOM操作としての行ドラッグは始まらない)、各ステップにカラーパレット・「Duration」(そのステップを表示し続ける時間、5〜60秒)・「Crossfade」(そのステップへ切り替わる際の時間、Durationを超えないようクランプ)を個別に指定する。「✕」で削除する。編集中の内容は`localStorage`に保存され、ページ再読み込み後も維持される。「Save Sequence」/選択/「Delete」で、編集中の内容とは別に複数のシーケンスを名前付きで保存・呼び出し・削除できる([presets.ts](presets.ts)のシーンプリセットと同様の考え方)。0件の間はAutoトグルが無効化される |
-| 「Auto interval」スライダー(Randomモードのみ表示) / 「Auto」トグルボタン | フルオートモード([specs/012-full-auto-mode.md](../specs/012-full-auto-mode.md)参照)。ONにした瞬間、`Sequence`ならすぐに最初のステップへ切り替わる(`Random`ならすぐにランダム化される)。以降、`Random`なら設定した間隔(5〜60秒)ごとに「Random」ボタンと同じ処理を、`Sequence`なら現在のステップに設定された時間が経過するたびにシーケンスの次のステップへ全投影窓を同時に進める処理を自動実行し続ける(`Sequence`は各投影窓が独立ではなく、全投影窓が同じ再生位置を共有する点が`Random`と異なる。またSequence中は各ステップが自分のタイミングを持つため、Auto intervalスライダー自体を隠しRandom専用にしている)。投影窓のいずれかがまだクロスフェード中で次のステップへ進められない場合は、そのステップを飛ばさず少し待って再試行する(`advanceSequence()`が`false`を返した場合)。Randomモードのグローバルなcrossfade durationは常にAuto interval以下に保たれる(クロスフェードが終わる前に次の自動切替が来る状態を避けるため): Auto interval変更時・フルオートをONにした瞬間・フルオートON中のCrossfade duration操作時のいずれでも、超えていれば自動的にAuto intervalまで短縮する(Sequenceモードでは各ステップ内で同様のクランプを個別に行う)。ボタンは「押すと切り替わる先」を表示する(OFF中は「Auto: ON」、ON中は「Auto: OFF (next in mm:ss)」と次回実行までの残り時間を表示)。投影窓の「Crossfade」ボタン・「Random」ボタンを手動操作するとOFFになる(シーン予約変更・FXパッド操作・Intensity/Crossfade duration・Auto modeの操作ではOFFにならない)。投影窓が1つもなくても操作できる(ただし`Sequence`でシーケンスが0件の間は無効化される) |
-
-数字キー(1/2/3)によるシーン切替は廃止済み(投影窓ごとにシーンが異なりうる中でシーン切替キーとして使うと「どの窓に効くか」が曖昧になるため)。投影窓側では `F` キーでフルスクリーン切り替え。
-
-パネル内の主要項目(Intensity、Crossfade duration、Random、Auto mode、Auto interval、Autoトグル、FX Pad、Enable Mic、Add Display)の右には「?」ボタンがあり、押すと共通のヘルプモーダル(`#help-modal`、シーケンス編集モーダルと同じ`.modal-overlay`/`.modal`)にその項目のタイトル・英語の説明文が表示される。各「?」ボタンは`data-help-title`/`data-help`属性に内容を持つだけで、`control.ts`側はクリックされたボタンの`dataset`を`#help-modal-title`/`#help-modal-text`へ流し込む汎用ロジックのみ持つ(項目ごとの個別コードは書いていない)。右上の「✕」ボタン(投影窓の削除ボタンと同じ`.close-btn`)とオーバーレイ自身のクリックの両方で閉じる([specs/014-ui-status-and-help.md](../specs/014-ui-status-and-help.md)参照)。
+- 投影窓フルスクリーン化などで操作窓が他ウィンドウに完全に隠れる(occluded)と、Chromeは `requestAnimationFrame` だけでなく `setInterval`/`setTimeout` も最小1秒間隔にクランプする。Worker内のタイマーはこの抑制を受けないため、[control.ts](control.ts) は音声解析・状態送信を駆動するtickを [tick-worker.ts](tick-worker.ts) に任せている。tickの間隔 `TICK_INTERVAL_MS`(33ms)は [crossfade.ts](crossfade.ts) も参照する(`durationMs=0` のクロスフェードでも、tick()に最低1回は状態を観測させるため。[specs/006-scene-crossfade.md](../specs/006-scene-crossfade.md)の実装メモ参照)。
+- `hidden` 属性で要素の表示・非表示を切り替える場合、その要素(またはそのセレクタ・クラス)に `display: flex`(または `display: block` 等)を指定するCSSルールがあると、`hidden` が効かず表示されたままになる。原因はセレクタの詳細度ではなくCSSカスケードの優先順位そのもの — `[hidden] { display: none }` はUser Agentスタイルシート由来であり、通常の重要度では作者(author)のスタイルシートが詳細度に関わらず優先されるため、作者側の `display` 指定に負ける(control.htmlの `.modal-overlay`(クラスセレクタ)、`#auto-interval-section`(IDセレクタ)の両方で実際に発生した)。`hidden` で消したい要素には、その要素に対して `display: none;` を明示するルールを `[hidden]` 付きで追加すること(例: `.some-class[hidden] { display: none; }`)。
+- `draggable="true"` を要素に常時付けたまま、その内部に `<input type="range">` 等のインタラクティブな子要素を置くと、そのスライダーをドラッグしようとした瞬間にブラウザが「要素自体のドラッグ開始」と誤認識し、スライダー操作ができなくなる(シーケンス編集モーダルの各ステップ行で実際に発生した)。対策として、行自体は常時 `draggable = false` にしておき、専用のドラッグハンドルの `mousedown`/`mouseup` でだけ一時的に `draggable` を切り替える(`control.ts` の `renderSequenceStepsList()` 参照)。
